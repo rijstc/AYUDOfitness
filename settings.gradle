@@ -1,0 +1,2 @@
+rootProject.name='AYUDOfitness'
+include ':app'
