@@ -45,7 +45,7 @@ public class BluetoothLEService {
                 return false;
             }
 
-            bluetoothGatt = bluetoothDevice.connectGatt(this, false, gattCallback);
+            // bluetoothGatt = bluetoothDevice.connectGatt(this, false, gattCallback);
             connectedDeviceAdress = deviceAdress;
             connectionState = CONNECTING;
             return true;
