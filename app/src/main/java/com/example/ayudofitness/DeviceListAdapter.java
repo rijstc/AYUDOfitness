@@ -39,7 +39,7 @@ class DeviceListAdapter extends BaseAdapter {
     @Override
     public View getView(int position, View convertView, ViewGroup parent) {
         Device device;
-        if (convertView == null){
+        if (convertView == null) {
             convertView = LayoutInflater.from(context).inflate(R.layout.devicelist, null);
             device = new Device();
             device.deviceName = convertView.findViewById(R.id.deviceName);
@@ -50,7 +50,7 @@ class DeviceListAdapter extends BaseAdapter {
         }
         this.device = deviceList.get(position);
         deviceName = this.device.getName();
-        if (deviceName!=null && deviceName.length()>0){
+        if (deviceName != null && deviceName.length() > 0) {
             device.deviceName.setText(deviceName);
         } else {
             device.deviceName.setText(R.string.unknownDevice);
@@ -60,9 +60,9 @@ class DeviceListAdapter extends BaseAdapter {
     }
 
     public void addDevice(BluetoothDevice device) {
-        if (!deviceList.contains(device)) {
-            deviceList.add(device);
-        }
+            if (!deviceList.contains(device)) {
+                deviceList.add(device);
+            }
     }
 
     public BluetoothDevice getDevice(int position) {

@@ -7,6 +7,7 @@ import androidx.core.content.ContextCompat;
 import android.Manifest;
 import android.app.ProgressDialog;
 import android.bluetooth.BluetoothAdapter;
+import android.bluetooth.BluetoothDevice;
 import android.bluetooth.BluetoothManager;
 import android.bluetooth.le.BluetoothLeScanner;
 import android.bluetooth.le.ScanCallback;
@@ -19,15 +20,11 @@ import android.os.AsyncTask;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
-import android.text.method.ScrollingMovementMethod;
-import android.util.Log;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
-import android.widget.Button;
+import android.widget.AdapterView;
 import android.widget.ListView;
-import android.widget.ProgressBar;
-import android.widget.TextView;
 import android.widget.Toast;
 
 import java.util.List;
@@ -47,6 +44,8 @@ public class MainActivity extends AppCompatActivity {
     private ListView listView;
     private boolean scanning;
     private Handler handler;
+    private BluetoothDevice bluetoothDevice;
+    private BluetoothDevice foundMiBand;
 
     private ScanCallback scanCallback = new ScanCallback() {
         @Override
@@ -54,11 +53,31 @@ public class MainActivity extends AppCompatActivity {
             runOnUiThread(new Runnable() {
                 @Override
                 public void run() {
-                    deviceListAdapter.addDevice(result.getDevice());
-                    deviceListAdapter.notifyDataSetChanged();
+                    foundMiBand = result.getDevice();
+                    if(foundMiBand.getName()!= null && foundMiBand.getName().equals("Mi Band 3")) {
+                        deviceListAdapter.addDevice(foundMiBand);
+                        deviceListAdapter.notifyDataSetChanged();
+                    }
                 }
             });
             listView.setAdapter(deviceListAdapter);
+            listView.setOnItemClickListener(new AdapterView.OnItemClickListener() {
+                @Override
+                public void onItemClick(AdapterView<?> parent, View view, int position, long id) {
+                    bluetoothDevice = deviceListAdapter.getDevice(position);
+                    if (bluetoothDevice == null) {
+                        return;
+                    }
+                    Intent intent = new Intent(MainActivity.this, DeviceConnectorActivity.class);
+                    intent.putExtra("DEVICE_NAME", bluetoothDevice.getName());
+                    intent.putExtra("DEVICE_ADRESS", bluetoothDevice.getAddress());
+                    if (scanning) {
+                        bluetoothLeScanner.stopScan(scanCallback);
+                        scanning = false;
+                    }
+                    startActivity(intent);
+                }
+            });
         }
 
         public void onBatchScanResults(List<ScanResult> results) {
@@ -77,7 +96,7 @@ public class MainActivity extends AppCompatActivity {
         setContentView(R.layout.activity_main);
         deviceListAdapter = new DeviceListAdapter(this);
 
-        listView = findViewById(R.id.listDevices);
+        listView = findViewById(R.id.list);
         bluetoothAdapter = ((BluetoothManager) getSystemService(Context.BLUETOOTH_SERVICE))
                 .getAdapter();
         bluetoothLeScanner = bluetoothAdapter.getBluetoothLeScanner();
@@ -140,14 +159,12 @@ public class MainActivity extends AppCompatActivity {
         return true;
     }
 
-
     private void scanDevice(boolean enabled) {
         if (enabled) {
             scanning = true;
             AsyncTask.execute(new Runnable() {
                 @Override
                 public void run() {
-                    Log.d(TAG, "start scan");
                     bluetoothLeScanner.startScan(scanCallback);
                 }
             });
