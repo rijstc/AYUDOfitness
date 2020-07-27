@@ -1,9 +1,5 @@
 package com.example.ayudofitness;
 
-import androidx.appcompat.app.AlertDialog;
-import androidx.appcompat.app.AppCompatActivity;
-import androidx.core.content.ContextCompat;
-
 import android.Manifest;
 import android.app.ProgressDialog;
 import android.bluetooth.BluetoothAdapter;
@@ -22,10 +18,12 @@ import android.os.Bundle;
 import android.os.Handler;
 import android.view.Menu;
 import android.view.MenuItem;
-import android.view.View;
-import android.widget.AdapterView;
 import android.widget.ListView;
 import android.widget.Toast;
+
+import androidx.appcompat.app.AlertDialog;
+import androidx.appcompat.app.AppCompatActivity;
+import androidx.core.content.ContextCompat;
 
 import java.util.List;
 
@@ -61,7 +59,7 @@ public class MainActivity extends AppCompatActivity {
                 }
             });
             listView.setAdapter(deviceListAdapter);
-            listView.setOnItemClickListener(new AdapterView.OnItemClickListener() {
+         /*   listView.setOnItemClickListener(new AdapterView.OnItemClickListener() {
                 @Override
                 public void onItemClick(AdapterView<?> parent, View view, int position, long id) {
                     bluetoothDevice = deviceListAdapter.getDevice(position);
@@ -77,7 +75,7 @@ public class MainActivity extends AppCompatActivity {
                     }
                     startActivity(intent);
                 }
-            });
+            });*/
         }
 
         public void onBatchScanResults(List<ScanResult> results) {

@@ -1,4 +1,4 @@
-package com.example.ayudofitness;
+/*package com.example.ayudofitness;
 
 import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothDevice;
@@ -47,3 +47,4 @@ public class DeviceConnectorActivity extends AppCompatActivity {
         Intent gattIntent = new Intent(this, BluetoothLEService.class);
     }
 }
+*/
