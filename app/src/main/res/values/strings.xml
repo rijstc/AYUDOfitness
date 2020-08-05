@@ -14,4 +14,10 @@
     <string name="deviceInfo">Zeige Geräteinfos</string>
     <string name="search">Start</string>
     <string name="stop">Stopp</string>
+
+    <string name="connect">Verbinden</string>
+    <string name="heartRate">Puls</string>
+    <string name="steps">Schritte</string>
+    <string name="battery">Batteriestatus</string>
+
 </resources>
