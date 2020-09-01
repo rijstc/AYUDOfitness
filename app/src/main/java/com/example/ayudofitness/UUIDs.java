@@ -2,9 +2,9 @@ package com.example.ayudofitness;
 
 import java.util.UUID;
 
-public class UUIDList {
+public class UUIDs {
     public static final String BASE_UUID = "0000%s-0000-1000-8000-00805f9b34fb";
-    public static UUID SERVICE_MIBAND1 = UUID.fromString(String.format(BASE_UUID, "fee0"));
+    public static UUID SERVICE_BASIC = UUID.fromString(String.format(BASE_UUID, "fee0"));
     public static UUID SERVICE_MIBAND2 = UUID.fromString(String.format(BASE_UUID, "fee1"));
     public static UUID SERVICE_ALERT = UUID.fromString(String.format(BASE_UUID, "1802"));
     public static UUID SERVICE_ALERT_NOTIFICATION = UUID.fromString(String.format(BASE_UUID, "1811"));
@@ -19,12 +19,16 @@ public class UUIDList {
     public static UUID CHARACTERISTIC_ALERT = UUID.fromString("00002a06-0000-1000-8000-00805f9b34fb");
     public static UUID CHARACTERISTIC_BATTERY = UUID.fromString("00000006-0000-3512-2118-0009af100700");
     public static UUID CHARACTERISTIC_STEPS = UUID.fromString("00000007-0000-3512-2118-0009af100700");
-    public static UUID CHARACTERISTIC_LE_PARAMS = UUID.fromString(String.format(BASE_UUID, "FF09"));
+    public static UUID CHARACTERISTIC_LE_PARAMS = UUID.fromString(String.format(BASE_UUID, "ff09"));
     public static int CHARACTERISTIC_REVISION = 0x2a28;
     public static int CHARACTERISTIC_SERIAL = 0x2a25;
     public static int CHARACTERISTIC_HRDW_REVISION = 0x2a27;
     public static UUID CHARACTERISTIC_CONFIGURATION = UUID.fromString("00000003-0000-3512-2118-0009af100700");
     public static UUID CHARACTERISTIC_DEVICEEVENT = UUID.fromString("00000010-0000-3512-2118-0009af100700");
+    public static UUID CHARACTERISTIC_PAIR = UUID.fromString("0000ff0f-0000-1000-8000-00805f9b34fb");
+    public static UUID CHARACTERISTIC_NOTIFICATION = UUID.fromString(String.format(BASE_UUID, "ff03"));
+    public static UUID CHARACTERISTIC_SENSOR_DATA = UUID.fromString(String.format(BASE_UUID, "ff0e"));
+    public static UUID CHARACTERISTIC_CONTROL_POINT = UUID.fromString(String.format(BASE_UUID, "ff05"));
 
     public static UUID CHARACTERISTIC_CURRENT_TIME = UUID.fromString(String.format(BASE_UUID, "2A2B"));
     public static UUID CHARACTERISTIC_AGE = UUID.fromString(String.format(BASE_UUID, "2A80"));

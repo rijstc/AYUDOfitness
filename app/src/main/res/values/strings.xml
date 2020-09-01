@@ -20,4 +20,7 @@
     <string name="steps">Schritte</string>
     <string name="battery">Batteriestatus</string>
 
+    <string name="connected">Verbunden</string>
+    <string name="disconnected">Nicht verbunden</string>
+
 </resources>
