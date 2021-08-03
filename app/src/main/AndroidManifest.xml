@@ -25,7 +25,7 @@
             </intent-filter>
         </activity>
         <activity android:name=".DeviceConnectorActivity"/>
-        <service android:name=".BluetoothLEService" android:enabled="true"/>
+        <service android:name=".BTLEService" android:enabled="true"/>
     </application>
 
 </manifest>
