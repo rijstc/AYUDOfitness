@@ -1,10 +1,8 @@
 package com.example.ayudofitness;
 
 import android.Manifest;
-import android.app.ProgressDialog;
 import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothDevice;
-import android.bluetooth.BluetoothGattCharacteristic;
 import android.bluetooth.BluetoothManager;
 import android.bluetooth.le.BluetoothLeScanner;
 import android.bluetooth.le.ScanCallback;
@@ -16,8 +14,6 @@ import android.content.pm.PackageManager;
 import android.os.AsyncTask;
 import android.os.Build;
 import android.os.Bundle;
-import android.os.Handler;
-import android.util.Log;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
@@ -29,7 +25,6 @@ import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.content.ContextCompat;
 
-import java.util.Arrays;
 import java.util.List;
 
 public class MainActivity extends AppCompatActivity {
@@ -38,15 +33,14 @@ public class MainActivity extends AppCompatActivity {
 
     private static final int REQUEST_ENABLE_BT = 1;
     private static final int PERMISSION_REQUEST_COARSE_LOCATION = 1;
+    public static final String EXTRAS_DEVICE = "DEVICE";
 
     private BluetoothAdapter bluetoothAdapter;
     private BluetoothLeScanner bluetoothLeScanner;
     private AlertDialog.Builder builder;
-    private ProgressDialog searchProgress;
     private DeviceListAdapter deviceListAdapter;
     private ListView listView;
     private boolean scanning;
-    private Handler handler;
     private BluetoothDevice bluetoothDevice;
     private BluetoothDevice foundMiBand;
     private BTLEService BTLEService = new BTLEService();
@@ -73,48 +67,12 @@ public class MainActivity extends AppCompatActivity {
                         return;
                     }
                     Intent intent = new Intent(MainActivity.this, DeviceConnectorActivity.class);
-                    intent.putExtra("DEVICE_NAME", bluetoothDevice.getName());
-                    intent.putExtra("DEVICE_ADDRESS", bluetoothDevice.getAddress());
+                    intent.putExtra(EXTRAS_DEVICE, bluetoothDevice);
                     if (scanning) {
                         bluetoothLeScanner.stopScan(scanCallback);
                         scanning = false;
                     }
                       startActivity(intent);
-                   /* BTLEService.connect(getApplicationContext(), bluetoothDevice, new ActionCallback() {
-                        @Override
-                        public void onSuccess(Object data) {
-                            Log.d(TAG, "connect on Success");
-                            BTLEService.setDisconnectedListener(new NotifyListener() {
-                                @Override
-                                public void onNotify(byte[] data) {
-                                    Log.d(TAG, "Verbindung unterbrochen");
-                                }
-                            });
-                        }
-
-                        @Override
-                        public void onFail(int errorCode, String msg) {
-                            Log.d(TAG, "connect fail: code: " + errorCode + " msg: " + msg);
-                        }
-                    });
-
-                    BTLEService.writeAndRead(UUIDS.UUID_CHARACTERISTIC_PAIR, Protocol.PAIR, new ActionCallback() {
-                        @Override
-                        public void onSuccess(Object data) {
-                            BluetoothGattCharacteristic characteristic = (BluetoothGattCharacteristic) data;
-                            Log.d(TAG, "pair result " + Arrays.toString(characteristic.getValue()));
-                            if (characteristic.getValue().length == 1 && characteristic.getValue()[0] == 2) {
-                                Log.d(TAG, "pair success");
-                            } else {
-                                Log.d(TAG, "pair failed");
-                            }
-                        }
-
-                        @Override
-                        public void onFail(int errorCode, String msg) {
-                            Log.d(TAG, "pair failed: code: " + errorCode + " msg: " + msg);
-                        }
-                    });*/
                 }
             });
         }

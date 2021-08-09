@@ -46,21 +46,22 @@ public class BTLEService extends Service {
             String intentAction;
             if (newState == BluetoothProfile.STATE_CONNECTED) {
                 intentAction = ACTION_GATT_CONNECTED;
-                connectionState = CONNECTED;
+                //connectionState = CONNECTED;
                 broadCastUpdate(intentAction);
+                gatt.discoverServices();
                 Log.d(TAG, "Connected to Gatt.");
-                Log.d(TAG, "Attempting to start service discovery: " + bluetoothGatt.discoverServices());
             } else if (newState == BluetoothProfile.STATE_DISCONNECTED) {
                 intentAction = ACTION_GATT_DISCONNECTED;
                 connectionState = DISCONNECTED;
                 Log.d(TAG, "Disconnected to Gatt.");
+                gatt.close();
                 broadCastUpdate(intentAction);
             }
         }
 
         @Override
         public void onServicesDiscovered(BluetoothGatt gatt, int status) {
-            super.onServicesDiscovered(gatt, status);
+            //super.onServicesDiscovered(gatt, status);
             if (status == BluetoothGatt.GATT_SUCCESS) {
                 broadCastUpdate(ACTION_GATT_SERVICES_DISCOVERED);
                 pair();
@@ -79,7 +80,7 @@ public class BTLEService extends Service {
 
         @Override
         public void onCharacteristicWrite(BluetoothGatt gatt, BluetoothGattCharacteristic characteristic, int status) {
-           super.onCharacteristicWrite(gatt, characteristic,status);
+            super.onCharacteristicWrite(gatt, characteristic, status);
         }
 
         @Override
@@ -94,9 +95,9 @@ public class BTLEService extends Service {
         @Override
         public void onReceive(Context context, Intent intent) {
             String action = intent.getAction();
-            switch (action){
+            switch (action) {
                 case MI_BAND_CONNECT:
-                  //  connect();
+                    //  connect();
                     break;
             }
         }
@@ -118,11 +119,13 @@ public class BTLEService extends Service {
         registerReceiver(stopServiceReceiver, new IntentFilter("myStoppingFilter"));
     }
 
+
     private void broadCastUpdate(String actionDataAvailable, BluetoothGattCharacteristic characteristic) {
 //TODO
     }
 
     private void broadCastUpdate(String intentAction) {
+        Log.d(TAG, "broadcastupdate intentAction: " + intentAction);
         final Intent intent = new Intent(intentAction);
         sendBroadcast(intent);
     }
@@ -141,8 +144,9 @@ public class BTLEService extends Service {
     @Override
     public boolean onUnbind(Intent intent) {
         if (bluetoothGatt != null) {
-            bluetoothGatt.close();
-            bluetoothGatt = null;
+            Log.d(TAG, "onUnbind");
+            // bluetoothGatt.close();
+            // bluetoothGatt = null;
         }
         return super.onUnbind(intent);
     }
@@ -151,13 +155,11 @@ public class BTLEService extends Service {
         if (bluetoothManager == null) {
             bluetoothManager = (BluetoothManager) getSystemService(Context.BLUETOOTH_SERVICE);
             if (bluetoothManager == null) {
-                Log.d(TAG, "Unable to initialize Bluetoothmanager.");
                 return false;
             }
         }
         bluetoothAdapter = bluetoothManager.getAdapter();
         if (bluetoothAdapter == null) {
-            Log.d(TAG, "unable to obtain a bluetoothadapter.");
             return false;
         }
         return true;
@@ -165,7 +167,6 @@ public class BTLEService extends Service {
 
     public boolean connect(final String address) {
         if (bluetoothAdapter == null || address == null) {
-            Log.d(TAG, "Bluetoothadapter or address is null.");
             return false;
         }
 
@@ -178,40 +179,42 @@ public class BTLEService extends Service {
                 return false;
             }
         }
+
         final BluetoothDevice device = bluetoothAdapter.getRemoteDevice(address);
         if (device == null) {
-            Log.d(TAG, "Device not found. Unable to connect.");
             return false;
         }
 
         bluetoothGatt = device.connectGatt(this, false, gattCallback);
         Log.d(TAG, "Trying to create a new connection.");
         deviceAdress = address;
-        connectionState = CONNECTING;
+        if (bluetoothGatt.connect()) {
+            connectionState = CONNECTING;
+            Log.d(TAG, "connectionState: " + connectionState);
+        }
         return true;
     }
 
     public void pair() {
+        Log.d(TAG, "pair started");
         if (bluetoothGatt != null) {
             BluetoothGattService miliService = bluetoothGatt.getService(UUIDS.UUID_SERVICE_MILI_SERVICE);
             BluetoothGattCharacteristic characteristic = miliService.getCharacteristic(UUIDS.UUID_CHARACTERISTIC_PAIR);
-            Log.d(TAG, "characteristics value: "+characteristic.getValue());
-            characteristic.setValue(new byte[]{2});
-            bluetoothGatt.writeCharacteristic(characteristic);
-            Log.d(TAG, "pair sent");
+            Log.d(TAG, "pair 2");
+
+            if (characteristic != null) {
+                Log.d(TAG, "pair 3");
+
+                characteristic.setValue(new byte[]{2});
+                bluetoothGatt.writeCharacteristic(characteristic);
+                Log.d(TAG, "pair sent");
+            }
         }
     }
 
 
 
-   /* public void connect(final Context context, BluetoothDevice bluetoothDevice,
-                        final ActionCallback actionCallback) {
-        this.callback = actionCallback;
-        Log.d(TAG, "uuids ----------- "+String.valueOf(bluetoothDevice.getUuids()));
-        bluetoothDevice.connectGatt(context, true, BTLEService.this);
-        Log.d("debugging", "connect okay");
-        actionCallback.onSuccess(callback);
-    }
+   /*
 
     public void writeAndRead(final UUID uuid, byte[] valueToWrite, final ActionCallback actionCallback) {
         writeChar(UUIDS.UUID_SERVICE_MILI_SERVICE, uuid, valueToWrite, new ActionCallback() {

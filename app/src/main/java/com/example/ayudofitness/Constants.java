@@ -2,15 +2,15 @@ package com.example.ayudofitness;
 
 public class Constants {
     public final static String ACTION_GATT_CONNECTED =
-            "com.example.ayudofitness.bluetooth.le.ACTION_GATT_CONNECTED";
+            "ACTION_GATT_CONNECTED";
     public final static String ACTION_GATT_DISCONNECTED =
-            "com.example.ayudofitness.bluetooth.le.ACTION_GATT_DISCONNECTED";
+            "ACTION_GATT_DISCONNECTED";
     public final static String ACTION_GATT_SERVICES_DISCOVERED =
-            "com.example.ayudofitness.bluetooth.le.ACTION_GATT_SERVICES_DISCOVERED";
+            "ACTION_GATT_SERVICES_DISCOVERED";
     public final static String ACTION_DATA_AVAILABLE =
-            "com.example.ayudofitness.bluetooth.le.ACTION_DATA_AVAILABLE";
+            "ACTION_DATA_AVAILABLE";
     public final static String EXTRA_DATA =
-            "com.example.ayudofitness.bluetooth.le.EXTRA_DATA";
+            "EXTRA_DATA";
 
     public static final String ACTION_MIBAND = "com.example.ayudofitness.action.miband";
     public static final String ACTION_MIBAND_SERVICE = "com.example.ayudofitness.action.miband_service";
