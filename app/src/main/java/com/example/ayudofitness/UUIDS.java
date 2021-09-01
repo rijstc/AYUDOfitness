@@ -37,7 +37,7 @@ public class UUIDS {
     public static final UUID UUID_CHARACTERISTIC_SENSOR_DATA = UUID.fromString(String.format(BASE_UUID, "FF0E"));
 
     //public static final UUID UUID_CHARACTERISTIC_PAIR = UUID.fromString(String.format(BASE_UUID, "FF0F"));
-    public static final UUID UUID_CHARACTERISTIC_PAIR =UUID.fromString("0000ff0f-0000-1000-8000-00805f9b34fb");
+    public static final UUID UUID_CHARACTERISTIC_PAIR =UUID.fromString("00000009-0000-3512-2118-0009af100700");
     public static final byte ALIAS_LEN = 0xa;
 
     public static final byte NOTIFY_AUTHENTICATION_FAILED = 0x6;
@@ -100,7 +100,7 @@ public class UUIDS {
 
     public static final String UUID_SERVICE_WEIGHT_SCALE_SERVICE = "181D";
 
-    public static final String UUID_SERVICE_WEIGHT_SERVICE = "00001530-0000-3512-2118-0009af100700";
+    public static final String UUID_SERVICE_FIRMWARE_SERVICE = "00001530-0000-3512-2118-0009af100700";
 
     public static final byte MSG_CONNECTED = 0x0;
 

@@ -9,16 +9,23 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.ServiceConnection;
+import android.content.SharedPreferences;
 import android.os.Bundle;
+import android.os.Handler;
 import android.os.IBinder;
+import android.os.Looper;
 import android.util.Log;
 import android.widget.TextView;
 
 import androidx.appcompat.app.AppCompatActivity;
 
-public class DeviceConnectorActivity extends AppCompatActivity {
+import java.nio.charset.Charset;
+import java.util.Random;
+
+public class PairingActivity extends AppCompatActivity {
     private final static String TAG = "debugging";
     public static final String EXTRAS_DEVICE = "DEVICE";
+    public static final String ACTION_DEVICE_CHANGED = "ACTION_DEVICE_CHANGED";
 
     private TextView textView;
     private String deviceName;
@@ -28,7 +35,7 @@ public class DeviceConnectorActivity extends AppCompatActivity {
     private boolean connected = false;
     private BluetoothAdapter bluetoothAdapter;
     private BluetoothDevice device;
-
+    private boolean isPairing;
 
 
     private final ServiceConnection serviceConnection = new ServiceConnection() {
@@ -38,11 +45,11 @@ public class DeviceConnectorActivity extends AppCompatActivity {
             if (!btleService.initialize()) {
                 finish();
             }
-            connected = btleService.connect(deviceAddress);
-            Log.d(TAG, "connected: "+ connected);
+            connected = btleService.connect(device);
+            Log.d(TAG, "connected: " + connected);
             device.createBond();
 
-           //btleService.pair();
+            //btleService.pair();
         }
 
         @Override
@@ -51,29 +58,27 @@ public class DeviceConnectorActivity extends AppCompatActivity {
         }
     };
 
-    private final BroadcastReceiver broadcastReceiverBondStateChanged = new BroadcastReceiver() {
+
+    private final BroadcastReceiver pairingReceiver = new BroadcastReceiver() {
         @Override
         public void onReceive(Context context, Intent intent) {
-            final String action = intent.getAction();
-
-            if(action.equals(BluetoothDevice.ACTION_BOND_STATE_CHANGED)){
+            if (intent.getAction().equals(ACTION_DEVICE_CHANGED)) {
                 BluetoothDevice device = intent.getParcelableExtra(BluetoothDevice.EXTRA_DEVICE);
-                int state = device.getBondState();
 
-                switch(state){
-                    case BluetoothDevice.BOND_BONDED:
-                    Log.d(TAG, "BroadcastReceiver: BOND_BONDED.");
-                    break;
-                    case BluetoothDevice.BOND_BONDING:
-                    Log.d(TAG, "BroadcastReceiver: BOND_BONDING.");
-                    break;
-                    case BluetoothDevice.BOND_NONE:
-                    Log.d(TAG, "BroadcastReceiver: BOND_NONE.");
-                    break;
-                }
             }
         }
     };
+
+    private void firstConnect(BluetoothDevice device) {
+        Looper mainLooper = Looper.getMainLooper();
+        new Handler(mainLooper).postDelayed(new Runnable() {
+            @Override
+            public void run() {
+                btleService.disconnect();
+                btleService.connect(device);
+            }
+        }, 1000);
+    }
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -86,12 +91,27 @@ public class DeviceConnectorActivity extends AppCompatActivity {
         deviceAddress = device.getAddress();
         textView.setText(deviceName);
 
+        SharedPreferences sharedPreferences = getSharedPreferences("MiBandSettings", Context.MODE_PRIVATE);
+        String authKey = sharedPreferences.getString("authKey", null);
+        if (authKey == null || authKey.isEmpty()){
+            SharedPreferences.Editor editor = sharedPreferences.edit();
+            String randomAuthKey = randomString(16);
+            editor.putString("authKey", randomAuthKey);
+            editor.apply();
+        }
+
+
         Intent gattIntent = new Intent(this, BTLEService.class);
         bindService(gattIntent, serviceConnection, BIND_AUTO_CREATE);
 
         IntentFilter filter = new IntentFilter(BluetoothDevice.ACTION_BOND_STATE_CHANGED);
-        registerReceiver(broadcastReceiverBondStateChanged, filter);
         bluetoothAdapter = BluetoothAdapter.getDefaultAdapter();
+    }
+
+    private String randomString(int i) {
+        byte[] array = new byte[i];
+        new Random().nextBytes(array);
+        return new String(array, Charset.forName("UTF-8"));
     }
 
 }

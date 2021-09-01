@@ -66,7 +66,7 @@ public class MainActivity extends AppCompatActivity {
                     if (bluetoothDevice == null) {
                         return;
                     }
-                    Intent intent = new Intent(MainActivity.this, DeviceConnectorActivity.class);
+                    Intent intent = new Intent(MainActivity.this, PairingActivity.class);
                     intent.putExtra(EXTRAS_DEVICE, bluetoothDevice);
                     if (scanning) {
                         bluetoothLeScanner.stopScan(scanCallback);

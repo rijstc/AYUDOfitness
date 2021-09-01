@@ -19,6 +19,14 @@ import android.util.Log;
 
 import androidx.localbroadcastmanager.content.LocalBroadcastManager;
 
+import java.util.Arrays;
+import java.util.List;
+import java.util.UUID;
+
+import static android.bluetooth.BluetoothDevice.BOND_BONDED;
+import static android.bluetooth.BluetoothDevice.BOND_BONDING;
+import static android.bluetooth.BluetoothDevice.BOND_NONE;
+import static android.bluetooth.BluetoothGatt.GATT_SUCCESS;
 import static com.example.ayudofitness.Constants.*;
 
 public class BTLEService extends Service {
@@ -30,57 +38,67 @@ public class BTLEService extends Service {
 
     private BluetoothManager bluetoothManager;
     private BluetoothAdapter bluetoothAdapter;
-    private BluetoothDevice bluetoothDevice;
     private String deviceAdress;
-    private int connectionState = DISCONNECTED;
+    private BluetoothDevice device;
 
-    private NotifyListener disconnectedListener = null;
-    private ActionCallback callback;
     private final IBinder iBinder = new LocalBinder();
-    private Context context;
     private BluetoothGatt bluetoothGatt;
+    private BluetoothGattService miliService;
     private final BluetoothGattCallback gattCallback = new BluetoothGattCallback() {
         @Override
         public void onConnectionStateChange(BluetoothGatt gatt, int status, int newState) {
-            super.onConnectionStateChange(gatt, status, newState);
-            String intentAction;
-            if (newState == BluetoothProfile.STATE_CONNECTED) {
-                intentAction = ACTION_GATT_CONNECTED;
-                //connectionState = CONNECTED;
+            String intentAction = null;
+            if (status == GATT_SUCCESS) {
+                if (newState == BluetoothProfile.STATE_CONNECTED) {
+                    intentAction = ACTION_GATT_CONNECTED;
+                    gatt.discoverServices();
+                } else if (newState == BluetoothProfile.STATE_DISCONNECTED) {
+                    intentAction = ACTION_GATT_DISCONNECTED;
+                    gatt.close();
+                }
                 broadCastUpdate(intentAction);
-                gatt.discoverServices();
-                Log.d(TAG, "Connected to Gatt.");
-            } else if (newState == BluetoothProfile.STATE_DISCONNECTED) {
-                intentAction = ACTION_GATT_DISCONNECTED;
-                connectionState = DISCONNECTED;
-                Log.d(TAG, "Disconnected to Gatt.");
+            } else {
                 gatt.close();
-                broadCastUpdate(intentAction);
             }
         }
 
         @Override
         public void onServicesDiscovered(BluetoothGatt gatt, int status) {
-            //super.onServicesDiscovered(gatt, status);
-            if (status == BluetoothGatt.GATT_SUCCESS) {
-                broadCastUpdate(ACTION_GATT_SERVICES_DISCOVERED);
-                pair();
+            if (status == GATT_SUCCESS) {
+                List<BluetoothGattService> services = gatt.getServices();
+                for (BluetoothGattService service : services) {
+                    List<BluetoothGattCharacteristic> characteristics = service.getCharacteristics();
+                    for (BluetoothGattCharacteristic characteristic : characteristics) {
+                        gatt.readCharacteristic(characteristic);
+                        if (characteristic.getUuid().equals(UUIDS.UUID_CHARACTERISTIC_PAIR)) {
+                            characteristic.setValue(new byte[]{2});
+                            gatt.writeCharacteristic(characteristic);
+                        }
+                        if (characteristic.getUuid().equals(UUIDS.UUID_CHARACTERISTIC_USER_INFO)) {
+                            Log.d(TAG, "user info found");
+                        }
+                    }
+                }
+                miliService = gatt.getService(UUIDS.UUID_SERVICE_MILI_SERVICE);
             } else {
-                Log.d(TAG, "onServicesDiscovered received: " + status);
+                disconnect();
+                return;
             }
         }
 
         @Override
         public void onCharacteristicRead(BluetoothGatt gatt, BluetoothGattCharacteristic characteristic, int status) {
             super.onCharacteristicRead(gatt, characteristic, status);
-            if (status == BluetoothGatt.GATT_SUCCESS) {
-                broadCastUpdate(ACTION_DATA_AVAILABLE, characteristic);
-            }
+            byte[] value = characteristic.getValue();
         }
 
         @Override
         public void onCharacteristicWrite(BluetoothGatt gatt, BluetoothGattCharacteristic characteristic, int status) {
-            super.onCharacteristicWrite(gatt, characteristic, status);
+            UUID characteristicUUID = characteristic.getUuid();
+            Log.d(TAG, "durch pair aufgerufen");
+            if (UUIDS.UUID_CHARACTERISTIC_PAIR.equals(characteristicUUID)) {
+                handlePair(characteristic.getValue(), status);
+            }
         }
 
         @Override
@@ -90,6 +108,7 @@ public class BTLEService extends Service {
 
         }
     };
+
 
     private BroadcastReceiver broadcastReceiver = new BroadcastReceiver() {
         @Override
@@ -165,7 +184,9 @@ public class BTLEService extends Service {
         return true;
     }
 
-    public boolean connect(final String address) {
+    public boolean connect(final BluetoothDevice device) {
+        this.device = device;
+        String address = device.getAddress();
         if (bluetoothAdapter == null || address == null) {
             return false;
         }
@@ -173,14 +194,13 @@ public class BTLEService extends Service {
         if (deviceAdress != null && address.equals(deviceAdress) && bluetoothGatt != null) {
             Log.d(TAG, "Trying to use existing Gatt for connection.");
             if (bluetoothGatt.connect()) {
-                connectionState = CONNECTING;
                 return true;
             } else {
                 return false;
             }
         }
 
-        final BluetoothDevice device = bluetoothAdapter.getRemoteDevice(address);
+        // final BluetoothDevice device = bluetoothAdapter.getRemoteDevice(address);
         if (device == null) {
             return false;
         }
@@ -189,95 +209,48 @@ public class BTLEService extends Service {
         Log.d(TAG, "Trying to create a new connection.");
         deviceAdress = address;
         if (bluetoothGatt.connect()) {
-            connectionState = CONNECTING;
-            Log.d(TAG, "connectionState: " + connectionState);
         }
         return true;
+    }
+
+    public void disconnect() {
+        bluetoothGatt.disconnect();
     }
 
     public void pair() {
         Log.d(TAG, "pair started");
         if (bluetoothGatt != null) {
-            BluetoothGattService miliService = bluetoothGatt.getService(UUIDS.UUID_SERVICE_MILI_SERVICE);
             BluetoothGattCharacteristic characteristic = miliService.getCharacteristic(UUIDS.UUID_CHARACTERISTIC_PAIR);
-            Log.d(TAG, "pair 2");
+            Log.d(TAG, "pair");
 
-            if (characteristic != null) {
-                Log.d(TAG, "pair 3");
-
-                characteristic.setValue(new byte[]{2});
-                bluetoothGatt.writeCharacteristic(characteristic);
-                Log.d(TAG, "pair sent");
-            }
+            characteristic.setValue(new byte[]{2});
+            characteristic.setWriteType(BluetoothGattCharacteristic.WRITE_TYPE_DEFAULT);
+            bluetoothGatt.writeCharacteristic(characteristic);
+            Log.d(TAG, "pair sent");
         }
     }
 
-
-
-   /*
-
-    public void writeAndRead(final UUID uuid, byte[] valueToWrite, final ActionCallback actionCallback) {
-        writeChar(UUIDS.UUID_SERVICE_MILI_SERVICE, uuid, valueToWrite, new ActionCallback() {
-
-            @Override
-            public void onSuccess(Object data) {
-                readChar(UUIDS.UUID_SERVICE_MILI_SERVICE, uuid, actionCallback);
-            }
-
-            @Override
-            public void onFail(int errorCode, String msg) {
-                callback.onFail(errorCode, msg);
-            }
-        });
-    }
-
-    private void readChar(UUID serviceUUID, UUID charUUID, ActionCallback actionCallback) {
-        try {
-            if (bluetoothGatt == null) {
-                Log.e(TAG, "connect to miband first");
-                throw new Exception("Bitte zuerst mit dem Mi Band verbinden!");
-            }
-            this.callback = actionCallback;
-            BluetoothGattCharacteristic characteristic = bluetoothGatt.getService(serviceUUID)
-                    .getCharacteristic(charUUID);
-            if (characteristic == null) {
-                callback.onFail(-1, "BluetoothGattCharacteristic " + charUUID + " existiert nicht!");
-                return;
-            }
-            if (this.bluetoothGatt.readCharacteristic(characteristic) == false) {
-                callback.onFail(-1, "Characteristic konnte nicht gelesen werden.");
-            }
-        } catch (Exception e) {
-            Log.d(TAG, "readChar " + e);
-            callback.onFail(-1, e.getMessage());
+    private void handlePair(byte[] value, int status) {
+        if (status != GATT_SUCCESS) {
+            Log.d(TAG, "pairing failed");
+            return;
         }
-    }
 
-    public void writeChar(UUID serviceUUID, UUID charUUID, byte[] value, ActionCallback actionCallback) {
-        try {
-            if (bluetoothGatt == null) {
-                Log.e(TAG, "connect to miband first");
-                throw new Exception("Bitte zuerst mit dem Mi Band verbinden!");
+        if (value != null) {
+            if (value.length == 1) {
+                try {
+                    if (value[0] == 2) {
+                        Log.d(TAG, "successfully paired");
+                        return;
+                    }
+                } catch (Exception e) {
+                    Log.d(TAG, "Error in pairing: " + e);
+                    return;
+                }
             }
-            this.callback = actionCallback;
-            BluetoothGattCharacteristic characteristic = bluetoothGatt.getService(serviceUUID)
-                    .getCharacteristic(charUUID);
-            if (characteristic == null) {
-                callback.onFail(-1, "BluetoothGattCharacteristic " + charUUID + " existiert nicht!");
-                return;
-            }
-            characteristic.setValue(value);
-            if (this.bluetoothGatt.writeCharacteristic(characteristic) == false) {
-                callback.onFail(-1, "Characteristic konnte nicht geschrieben werden.");
-            }
-        } catch (Exception e) {
-            Log.d(TAG, "writeChar " + e);
-            callback.onFail(-1, e.getMessage());
         }
+        Log.d(TAG, Arrays.toString(value));
     }
 
-    public void setDisconnectedListener(NotifyListener disconnectedListener) {
-        this.disconnectedListener = disconnectedListener;
-    }*/
 }
 
