@@ -6,6 +6,7 @@ import android.bluetooth.BluetoothDevice;
 import android.bluetooth.BluetoothGatt;
 import android.bluetooth.BluetoothGattCallback;
 import android.bluetooth.BluetoothGattCharacteristic;
+import android.bluetooth.BluetoothGattDescriptor;
 import android.bluetooth.BluetoothGattService;
 import android.bluetooth.BluetoothManager;
 import android.bluetooth.BluetoothProfile;
@@ -19,22 +20,33 @@ import android.util.Log;
 
 import androidx.localbroadcastmanager.content.LocalBroadcastManager;
 
+import java.security.InvalidKeyException;
+import java.security.NoSuchAlgorithmException;
 import java.util.Arrays;
-import java.util.List;
 import java.util.UUID;
 
-import static android.bluetooth.BluetoothDevice.BOND_BONDED;
-import static android.bluetooth.BluetoothDevice.BOND_BONDING;
-import static android.bluetooth.BluetoothDevice.BOND_NONE;
 import static android.bluetooth.BluetoothGatt.GATT_SUCCESS;
 import static com.example.ayudofitness.Constants.*;
+
+import org.apache.commons.lang3.ArrayUtils;
+
+import javax.crypto.BadPaddingException;
+import javax.crypto.Cipher;
+import javax.crypto.IllegalBlockSizeException;
+import javax.crypto.NoSuchPaddingException;
+import javax.crypto.spec.SecretKeySpec;
+
 
 public class BTLEService extends Service {
     private static final String TAG = "debugging";
 
-    private static final int DISCONNECTED = 0;
-    private static final int CONNECTING = 1;
-    private static final int CONNECTED = 2;
+    public byte[] AUTH_CHAR_KEY = new byte[]{
+            (byte) 0xf5, (byte) 0xd2, 0x29, (byte) 0x87, 0x65, 0x0a, 0x1d, (byte) 0x82, 0x05,
+            (byte) 0xab, (byte) 0x82, (byte) 0xbe, (byte) 0xb9, 0x38, 0x59, (byte) 0xcf};
+
+    private BluetoothGattCharacteristic authChar;
+    private BluetoothGattDescriptor authDesc;
+    private BluetoothGattService service;
 
     private BluetoothManager bluetoothManager;
     private BluetoothAdapter bluetoothAdapter;
@@ -43,20 +55,15 @@ public class BTLEService extends Service {
 
     private final IBinder iBinder = new LocalBinder();
     private BluetoothGatt bluetoothGatt;
-    private BluetoothGattService miliService;
     private final BluetoothGattCallback gattCallback = new BluetoothGattCallback() {
         @Override
         public void onConnectionStateChange(BluetoothGatt gatt, int status, int newState) {
-            String intentAction = null;
             if (status == GATT_SUCCESS) {
                 if (newState == BluetoothProfile.STATE_CONNECTED) {
-                    intentAction = ACTION_GATT_CONNECTED;
                     gatt.discoverServices();
                 } else if (newState == BluetoothProfile.STATE_DISCONNECTED) {
-                    intentAction = ACTION_GATT_DISCONNECTED;
                     gatt.close();
                 }
-                broadCastUpdate(intentAction);
             } else {
                 gatt.close();
             }
@@ -64,22 +71,13 @@ public class BTLEService extends Service {
 
         @Override
         public void onServicesDiscovered(BluetoothGatt gatt, int status) {
+
             if (status == GATT_SUCCESS) {
-                List<BluetoothGattService> services = gatt.getServices();
-                for (BluetoothGattService service : services) {
-                    List<BluetoothGattCharacteristic> characteristics = service.getCharacteristics();
-                    for (BluetoothGattCharacteristic characteristic : characteristics) {
-                        gatt.readCharacteristic(characteristic);
-                        if (characteristic.getUuid().equals(UUIDS.UUID_CHARACTERISTIC_PAIR)) {
-                            characteristic.setValue(new byte[]{2});
-                            gatt.writeCharacteristic(characteristic);
-                        }
-                        if (characteristic.getUuid().equals(UUIDS.UUID_CHARACTERISTIC_USER_INFO)) {
-                            Log.d(TAG, "user info found");
-                        }
-                    }
-                }
-                miliService = gatt.getService(UUIDS.UUID_SERVICE_MILI_SERVICE);
+                service = gatt.getService(UUIDS.SERVICE);
+                authChar = service.getCharacteristic(UUIDS.CHAR_AUTH);
+                Log.d(TAG, String.valueOf(authChar.getUuid()));
+                authDesc = authChar.getDescriptor(UUIDS.NOTIFICATION_DESC);
+                authorise(gatt);
             } else {
                 disconnect();
                 return;
@@ -96,58 +94,93 @@ public class BTLEService extends Service {
         public void onCharacteristicWrite(BluetoothGatt gatt, BluetoothGattCharacteristic characteristic, int status) {
             UUID characteristicUUID = characteristic.getUuid();
             Log.d(TAG, "durch pair aufgerufen");
-            if (UUIDS.UUID_CHARACTERISTIC_PAIR.equals(characteristicUUID)) {
-                handlePair(characteristic.getValue(), status);
-            }
         }
 
         @Override
         public void onCharacteristicChanged(BluetoothGatt gatt, BluetoothGattCharacteristic characteristic) {
-            super.onCharacteristicChanged(gatt, characteristic);
-            broadCastUpdate(ACTION_DATA_AVAILABLE, characteristic);
+            Log.d(TAG, "onCharacteristicChanged char uuid: " + characteristic.getUuid().toString()
+                    + " value: " + Arrays.toString(characteristic.getValue()));
+            byte[] newValue = Arrays.copyOfRange(characteristic.getValue(), 0, 3);
+            if (characteristic.getUuid().equals(UUIDS.CHAR_AUTH)) {
+                switch (Arrays.toString(newValue)) {
+                    case "[16, 1, 1]":
+                        authChar.setValue(new byte[]{0x02, 0x00});
+                        gatt.writeCharacteristic(authChar);
+                        break;
+                    case "[16, 2, 1]":
+                        authenticate(gatt, characteristic);
+                        break;
+                    case "[16, 3, 1]":
+                        Log.d(TAG, "Authentifizierung erfolgreich!");
+                }
+            } else {
+                throw new IllegalStateException("Unexpected value: " + characteristic.getUuid());
+            }
 
         }
-    };
 
-
-    private BroadcastReceiver broadcastReceiver = new BroadcastReceiver() {
         @Override
-        public void onReceive(Context context, Intent intent) {
-            String action = intent.getAction();
-            switch (action) {
-                case MI_BAND_CONNECT:
-                    //  connect();
-                    break;
+        public void onDescriptorWrite(BluetoothGatt gatt, BluetoothGattDescriptor descriptor, int status) {
+            super.onDescriptorWrite(gatt, descriptor, status);
+            if (descriptor.getCharacteristic().getUuid().equals(UUIDS.CHAR_AUTH)) {
+                Log.d(TAG, "ondescriptorwrite");
+
+                byte[] authKey = ArrayUtils.addAll(BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE, AUTH_CHAR_KEY);
+                authChar.setValue(authKey);
+                gatt.writeCharacteristic(authChar);
+
+            } else {
+                throw new IllegalStateException("Unexpected value: " + descriptor.getCharacteristic().getUuid().toString());
             }
         }
-    };
 
-    protected BroadcastReceiver stopServiceReceiver = new BroadcastReceiver() {
         @Override
-        public void onReceive(Context context, Intent intent) {
-            stopSelf();
+        public void onDescriptorRead(BluetoothGatt gatt, BluetoothGattDescriptor descriptor, int status) {
+            Log.d(TAG, "ondescriptorread: " + descriptor.getUuid().toString() + " Read" + "status: " + status);
         }
+
     };
 
-    @Override
-    public void onCreate() {
-        super.onCreate();
-        LocalBroadcastManager.getInstance(BTLEService.this).registerReceiver(broadcastReceiver,
-                new IntentFilter(Constants.ACTION_MIBAND));
 
-        registerReceiver(stopServiceReceiver, new IntentFilter("myStoppingFilter"));
+    private void authenticate(BluetoothGatt gatt, BluetoothGattCharacteristic characteristic) {
+        byte[] value = characteristic.getValue();
+        if (value[0] == 16 && value[1] == 2 && value[2] == 1) {
+            try {
+                byte[] copyValue = Arrays.copyOfRange(value, 3, 19);
+                String CIPHER_TYPE = "AES/ECB/NoPadding";
+                Cipher cipher = Cipher.getInstance(CIPHER_TYPE);
+
+                String CIPHER_NAME = "AES";
+                SecretKeySpec secretKeySpec = new SecretKeySpec(AUTH_CHAR_KEY, CIPHER_NAME);
+                cipher.init(Cipher.ENCRYPT_MODE, secretKeySpec);
+
+                byte[] key = cipher.doFinal(copyValue);
+                byte[] request = ArrayUtils.addAll(new byte[]{0x03, 0x00}, key);
+                characteristic.setValue(request);
+                gatt.writeCharacteristic(characteristic);
+            } catch (NoSuchPaddingException e) {
+                e.printStackTrace();
+            } catch (NoSuchAlgorithmException e) {
+                e.printStackTrace();
+            } catch (InvalidKeyException e) {
+                e.printStackTrace();
+            } catch (BadPaddingException e) {
+                e.printStackTrace();
+            } catch (IllegalBlockSizeException e) {
+                e.printStackTrace();
+            }
+        }
     }
 
+    private void authorise(BluetoothGatt gatt) {
+        gatt.setCharacteristicNotification(authChar, true);
+        authDesc = authChar.getDescriptor(UUIDS.NOTIFICATION_DESC);
+        authDesc.setValue(BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE);
 
-    private void broadCastUpdate(String actionDataAvailable, BluetoothGattCharacteristic characteristic) {
-//TODO
+            gatt.writeDescriptor(authDesc);
+
     }
 
-    private void broadCastUpdate(String intentAction) {
-        Log.d(TAG, "broadcastupdate intentAction: " + intentAction);
-        final Intent intent = new Intent(intentAction);
-        sendBroadcast(intent);
-    }
 
     public class LocalBinder extends Binder {
         BTLEService getService() {
@@ -198,59 +231,20 @@ public class BTLEService extends Service {
             } else {
                 return false;
             }
-        }
-
-        // final BluetoothDevice device = bluetoothAdapter.getRemoteDevice(address);
-        if (device == null) {
+        } else if (device == null) {
             return false;
+        } else {
+            bluetoothGatt = device.connectGatt(this, false, gattCallback);
+            Log.d(TAG, "Trying to create a new connection.");
+            deviceAdress = address;
+            return true;
         }
-
-        bluetoothGatt = device.connectGatt(this, false, gattCallback);
-        Log.d(TAG, "Trying to create a new connection.");
-        deviceAdress = address;
-        if (bluetoothGatt.connect()) {
-        }
-        return true;
     }
 
     public void disconnect() {
         bluetoothGatt.disconnect();
     }
 
-    public void pair() {
-        Log.d(TAG, "pair started");
-        if (bluetoothGatt != null) {
-            BluetoothGattCharacteristic characteristic = miliService.getCharacteristic(UUIDS.UUID_CHARACTERISTIC_PAIR);
-            Log.d(TAG, "pair");
-
-            characteristic.setValue(new byte[]{2});
-            characteristic.setWriteType(BluetoothGattCharacteristic.WRITE_TYPE_DEFAULT);
-            bluetoothGatt.writeCharacteristic(characteristic);
-            Log.d(TAG, "pair sent");
-        }
-    }
-
-    private void handlePair(byte[] value, int status) {
-        if (status != GATT_SUCCESS) {
-            Log.d(TAG, "pairing failed");
-            return;
-        }
-
-        if (value != null) {
-            if (value.length == 1) {
-                try {
-                    if (value[0] == 2) {
-                        Log.d(TAG, "successfully paired");
-                        return;
-                    }
-                } catch (Exception e) {
-                    Log.d(TAG, "Error in pairing: " + e);
-                    return;
-                }
-            }
-        }
-        Log.d(TAG, Arrays.toString(value));
-    }
 
 }
 

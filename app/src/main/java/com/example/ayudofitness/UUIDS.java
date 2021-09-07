@@ -3,9 +3,11 @@ package com.example.ayudofitness;
 import java.util.UUID;
 
 public class UUIDS {
+
+
     public static final String BASE_UUID = "0000%s-0000-1000-8000-00805f9b34fb";
 
-    public static final UUID UUID_SERVICE_MILI_SERVICE = UUID.fromString("0000fee0-0000-1000-8000-00805f9b34fb");
+    public static final UUID SERVICE = UUID.fromString("0000fee1-0000-1000-8000-00805f9b34fb");
     //public static final UUID UUID_SERVICE_MILI_SERVICE = UUID.fromString(String.format(BASE_UUID, "FEE0"));
 
     public static final UUID UUID_CHARACTERISTIC_DEVICE_INFO = UUID.fromString(String.format(BASE_UUID, "FF01"));
@@ -36,8 +38,10 @@ public class UUIDS {
 
     public static final UUID UUID_CHARACTERISTIC_SENSOR_DATA = UUID.fromString(String.format(BASE_UUID, "FF0E"));
 
-    //public static final UUID UUID_CHARACTERISTIC_PAIR = UUID.fromString(String.format(BASE_UUID, "FF0F"));
-    public static final UUID UUID_CHARACTERISTIC_PAIR =UUID.fromString("00000009-0000-3512-2118-0009af100700");
+    public static final UUID CHAR_AUTH = UUID.fromString("00000009-0000-3512-2118-0009af100700");
+    public static final UUID NOTIFICATION_DESC =
+            UUID.fromString("00002902-0000-1000-8000-00805f9b34fb");
+
     public static final byte ALIAS_LEN = 0xa;
 
     public static final byte NOTIFY_AUTHENTICATION_FAILED = 0x6;
@@ -118,63 +122,4 @@ public class UUIDS {
 
     public static final byte MSG_BATTERY_STATUS_CHANGED = 0x7;
 
-    //public static final  COMMAND_CONFIRM_ACTIVITY_DATA_TRANSFER_COMPLETE = 0xat;
-    //
-    //    public static final byte COMMAND_FACTORY_RESET = 0x9t;
-    //
-    //    public static final byte COMMAND_FETCH_DATA = 0x6t;
-    //
-    //    public static final byte COMMAND_GET_SENSOR_DATA = 0x12t
-    //
-    //    public static final byte COMMAND_REBOOT = 0xct
-    //
-    //    public static final byte COMMAND_SEND_FIRMWARE_INFO = 0x7t
-    //
-    //    public static final COMMAND_SEND_NOTIFICATION = 0x8t
-    //
-    //    public static final int COMMAND_SET_COLOR_THEME = et;
-    //
-    //    public static final COMMAND_SET_FITNESS_GOAL = 0x5t
-    //
-    //    public static final COMMAND_SET_REALTIME_STEP = 0x10t
-    //
-    //    public static final COMMAND_SET_REALTIME_STEPS_NOTIFICATION = 0x3t
-    //
-    //    public static final COMMAND_SET_TIMER = 0x4t
-    //
-    //    public static final COMMAND_SET_WEAR_LOCATION = 0xft
-    //
-    //    public static final COMMAND_STOP_MOTOR_VIBRATE = 0x13t
-    //
-    //    public static final COMMAND_STOP_SYNC_DATA = 0x11t
-    //
-    //    public static final COMMAND_SYNC = 0xbt
-    //
-    //    public static final CONNECTION_LATENCY_LEVEL_HIGH = 0x2t;
-    //
-    //    public static final CONNECTION_LATENCY_LEVEL_LOW = 0x0t;
-    //
-    //    public static final CONNECTION_LATENCY_LEVEL_MEDIUM = 0x1t;
-    //
-    //    public static final MODE_REGULAR_DATA_LEN_BYTE = 0x0t;
-    //
-    //    public static final MODE_REGULAR_DATA_LEN_MINITE = 0x1t
-    //
-    //    public static final PROFILE_STATE_AUTHENTICATION_FAILED:I = 0x4
-    //
-    //    public static final PROFILE_STATE_AUTHENTICATION_SUCCESS:I = 0x3
-    //
-    //    public static final PROFILE_STATE_INITIALIZATION_FAILED:I = 0x2
-    //
-    //    public static final PROFILE_STATE_INITIALIZATION_SUCCESS:I = 0x1
-    //
-    //    public static final PROFILE_STATE_UNKNOWN:I = 0x0
-    //
-    //    public static final TEST_DISCONNECTED_REMINDER = 0x5t
-    //
-    //    public static final TEST_NOTIFICATION = 0x3t
-    //
-    //    public static final TEST_REMOTE_DISCONNECT = 0x1t
-    //
-    //    public static final TEST_SELFTEST = 0x2t
 }

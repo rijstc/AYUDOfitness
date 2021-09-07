@@ -14,7 +14,6 @@ import android.os.Bundle;
 import android.os.Handler;
 import android.os.IBinder;
 import android.os.Looper;
-import android.util.Log;
 import android.widget.TextView;
 
 import androidx.appcompat.app.AppCompatActivity;
@@ -32,10 +31,8 @@ public class PairingActivity extends AppCompatActivity {
     private String deviceAddress;
     private BTLEService btleService;
     private BluetoothManager bluetoothManager;
-    private boolean connected = false;
     private BluetoothAdapter bluetoothAdapter;
     private BluetoothDevice device;
-    private boolean isPairing;
 
 
     private final ServiceConnection serviceConnection = new ServiceConnection() {
@@ -45,11 +42,8 @@ public class PairingActivity extends AppCompatActivity {
             if (!btleService.initialize()) {
                 finish();
             }
-            connected = btleService.connect(device);
-            Log.d(TAG, "connected: " + connected);
             device.createBond();
-
-            //btleService.pair();
+            btleService.connect(device);
         }
 
         @Override
@@ -58,27 +52,6 @@ public class PairingActivity extends AppCompatActivity {
         }
     };
 
-
-    private final BroadcastReceiver pairingReceiver = new BroadcastReceiver() {
-        @Override
-        public void onReceive(Context context, Intent intent) {
-            if (intent.getAction().equals(ACTION_DEVICE_CHANGED)) {
-                BluetoothDevice device = intent.getParcelableExtra(BluetoothDevice.EXTRA_DEVICE);
-
-            }
-        }
-    };
-
-    private void firstConnect(BluetoothDevice device) {
-        Looper mainLooper = Looper.getMainLooper();
-        new Handler(mainLooper).postDelayed(new Runnable() {
-            @Override
-            public void run() {
-                btleService.disconnect();
-                btleService.connect(device);
-            }
-        }, 1000);
-    }
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -91,14 +64,6 @@ public class PairingActivity extends AppCompatActivity {
         deviceAddress = device.getAddress();
         textView.setText(deviceName);
 
-        SharedPreferences sharedPreferences = getSharedPreferences("MiBandSettings", Context.MODE_PRIVATE);
-        String authKey = sharedPreferences.getString("authKey", null);
-        if (authKey == null || authKey.isEmpty()){
-            SharedPreferences.Editor editor = sharedPreferences.edit();
-            String randomAuthKey = randomString(16);
-            editor.putString("authKey", randomAuthKey);
-            editor.apply();
-        }
 
 
         Intent gattIntent = new Intent(this, BTLEService.class);
@@ -108,10 +73,5 @@ public class PairingActivity extends AppCompatActivity {
         bluetoothAdapter = BluetoothAdapter.getDefaultAdapter();
     }
 
-    private String randomString(int i) {
-        byte[] array = new byte[i];
-        new Random().nextBytes(array);
-        return new String(array, Charset.forName("UTF-8"));
-    }
 
 }
