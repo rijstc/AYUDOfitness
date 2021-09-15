@@ -10,22 +10,26 @@ import android.bluetooth.BluetoothGattDescriptor;
 import android.bluetooth.BluetoothGattService;
 import android.bluetooth.BluetoothManager;
 import android.bluetooth.BluetoothProfile;
-import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
-import android.content.IntentFilter;
 import android.os.Binder;
+import android.os.Handler;
 import android.os.IBinder;
+import android.os.Looper;
 import android.util.Log;
 
-import androidx.localbroadcastmanager.content.LocalBroadcastManager;
+import androidx.annotation.Nullable;
 
 import java.security.InvalidKeyException;
 import java.security.NoSuchAlgorithmException;
 import java.util.Arrays;
+import java.util.Queue;
 import java.util.UUID;
 
+import static android.bluetooth.BluetoothDevice.BOND_BONDED;
+import static android.bluetooth.BluetoothDevice.BOND_NONE;
 import static android.bluetooth.BluetoothGatt.GATT_SUCCESS;
+import static android.bluetooth.BluetoothGattCharacteristic.PROPERTY_READ;
 import static com.example.ayudofitness.Constants.*;
 
 import org.apache.commons.lang3.ArrayUtils;
@@ -40,18 +44,35 @@ import javax.crypto.spec.SecretKeySpec;
 public class BTLEService extends Service {
     private static final String TAG = "debugging";
 
+    private static final String MYPREF = "myCustomSharedPref";
+    private static final String PREF_KEY_FIRST_RUN = "firstrun";
+
+    //SharedPreferences customSharedPreferences = getApplicationContext().getSharedPreferences(MYPREF, Context.MODE_PRIVATE);
+
     public byte[] AUTH_CHAR_KEY = new byte[]{
             (byte) 0xf5, (byte) 0xd2, 0x29, (byte) 0x87, 0x65, 0x0a, 0x1d, (byte) 0x82, 0x05,
             (byte) 0xab, (byte) 0x82, (byte) 0xbe, (byte) 0xb9, 0x38, 0x59, (byte) 0xcf};
 
+    private BluetoothGattService service_0;
+    private BluetoothGattService service_1;
     private BluetoothGattCharacteristic authChar;
+    private BluetoothGattCharacteristic stepChar;
     private BluetoothGattDescriptor authDesc;
-    private BluetoothGattService service;
+
+    private Queue<Runnable> commandQueue;
+    private boolean commandQueueBusy;
+    private int tries = 0;
+    private boolean isRetrying;
+    private final Handler handler = new Handler(Looper.getMainLooper());
+    private static final int MAX_TRIES = 2;
+    private byte[] currentWriteBytes = new byte[0];
+
 
     private BluetoothManager bluetoothManager;
     private BluetoothAdapter bluetoothAdapter;
     private String deviceAdress;
     private BluetoothDevice device;
+    private int connectionState;
 
     private final IBinder iBinder = new LocalBinder();
     private BluetoothGatt bluetoothGatt;
@@ -60,8 +81,12 @@ public class BTLEService extends Service {
         public void onConnectionStateChange(BluetoothGatt gatt, int status, int newState) {
             if (status == GATT_SUCCESS) {
                 if (newState == BluetoothProfile.STATE_CONNECTED) {
+                    connectionState = STATE_CONNECTED;
+                    broadcastUpdate(ACTION_GATT_CONNECTED);
                     gatt.discoverServices();
                 } else if (newState == BluetoothProfile.STATE_DISCONNECTED) {
+                    connectionState = STATE_DISCONNECTED;
+                    broadcastUpdate(ACTION_GATT_DISCONNECTED);
                     gatt.close();
                 }
             } else {
@@ -73,11 +98,15 @@ public class BTLEService extends Service {
         public void onServicesDiscovered(BluetoothGatt gatt, int status) {
 
             if (status == GATT_SUCCESS) {
-                service = gatt.getService(UUIDS.SERVICE);
-                authChar = service.getCharacteristic(UUIDS.CHAR_AUTH);
+                broadcastUpdate(ACTION_GATT_SERVICES_DISCOVERED);
+                service_1 = gatt.getService(UUIDS.SERVICE_1);
+                authChar = service_1.getCharacteristic(UUIDS.UUID_CHAR_AUTH);
                 Log.d(TAG, String.valueOf(authChar.getUuid()));
                 authDesc = authChar.getDescriptor(UUIDS.NOTIFICATION_DESC);
                 authorise(gatt);
+                service_0 = gatt.getService(UUIDS.SERVICE_0);
+                stepChar = service_0.getCharacteristic(UUIDS.UUID_CHAR_STEPS);
+                Log.d(TAG, "stepChar: " + stepChar.getUuid() + ", " + stepChar.getValue());
             } else {
                 disconnect();
                 return;
@@ -86,14 +115,17 @@ public class BTLEService extends Service {
 
         @Override
         public void onCharacteristicRead(BluetoothGatt gatt, BluetoothGattCharacteristic characteristic, int status) {
-            super.onCharacteristicRead(gatt, characteristic, status);
-            byte[] value = characteristic.getValue();
+            if (status == GATT_SUCCESS) {
+                byte[] value = characteristic.getValue();
+            }
+            commandCompleted();
         }
 
         @Override
         public void onCharacteristicWrite(BluetoothGatt gatt, BluetoothGattCharacteristic characteristic, int status) {
-            UUID characteristicUUID = characteristic.getUuid();
-            Log.d(TAG, "durch pair aufgerufen");
+            byte[] value = currentWriteBytes;
+            currentWriteBytes = new byte[0];
+            commandCompleted();
         }
 
         @Override
@@ -101,7 +133,7 @@ public class BTLEService extends Service {
             Log.d(TAG, "onCharacteristicChanged char uuid: " + characteristic.getUuid().toString()
                     + " value: " + Arrays.toString(characteristic.getValue()));
             byte[] newValue = Arrays.copyOfRange(characteristic.getValue(), 0, 3);
-            if (characteristic.getUuid().equals(UUIDS.CHAR_AUTH)) {
+            if (characteristic.getUuid().equals(UUIDS.UUID_CHAR_AUTH)) {
                 switch (Arrays.toString(newValue)) {
                     case "[16, 1, 1]":
                         authChar.setValue(new byte[]{0x02, 0x00});
@@ -111,7 +143,8 @@ public class BTLEService extends Service {
                         authenticate(gatt, characteristic);
                         break;
                     case "[16, 3, 1]":
-                        Log.d(TAG, "Authentifizierung erfolgreich!");
+                        broadcastUpdate(AUTH_OK);
+                        break;
                 }
             } else {
                 throw new IllegalStateException("Unexpected value: " + characteristic.getUuid());
@@ -121,22 +154,25 @@ public class BTLEService extends Service {
 
         @Override
         public void onDescriptorWrite(BluetoothGatt gatt, BluetoothGattDescriptor descriptor, int status) {
-            super.onDescriptorWrite(gatt, descriptor, status);
-            if (descriptor.getCharacteristic().getUuid().equals(UUIDS.CHAR_AUTH)) {
-                Log.d(TAG, "ondescriptorwrite");
+            if (descriptor.getCharacteristic().getUuid().equals(UUIDS.UUID_CHAR_AUTH)) {
+                if (status == GATT_SUCCESS) {
+                    Log.d(TAG, "ondescriptorwrite");
 
-                byte[] authKey = ArrayUtils.addAll(BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE, AUTH_CHAR_KEY);
-                authChar.setValue(authKey);
-                gatt.writeCharacteristic(authChar);
+                    byte[] authKey = ArrayUtils.addAll(BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE, AUTH_CHAR_KEY);
+                    authChar.setValue(authKey);
+                    gatt.writeCharacteristic(authChar);
+                }
 
             } else {
                 throw new IllegalStateException("Unexpected value: " + descriptor.getCharacteristic().getUuid().toString());
             }
+            commandCompleted();
         }
 
         @Override
         public void onDescriptorRead(BluetoothGatt gatt, BluetoothGattDescriptor descriptor, int status) {
             Log.d(TAG, "ondescriptorread: " + descriptor.getUuid().toString() + " Read" + "status: " + status);
+            commandCompleted();
         }
 
     };
@@ -177,7 +213,7 @@ public class BTLEService extends Service {
         authDesc = authChar.getDescriptor(UUIDS.NOTIFICATION_DESC);
         authDesc.setValue(BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE);
 
-            gatt.writeDescriptor(authDesc);
+        gatt.writeDescriptor(authDesc);
 
     }
 
@@ -188,6 +224,7 @@ public class BTLEService extends Service {
         }
     }
 
+    @Nullable
     @Override
     public IBinder onBind(Intent intent) {
         return iBinder;
@@ -195,12 +232,21 @@ public class BTLEService extends Service {
 
     @Override
     public boolean onUnbind(Intent intent) {
-        if (bluetoothGatt != null) {
-            Log.d(TAG, "onUnbind");
-            // bluetoothGatt.close();
-            // bluetoothGatt = null;
-        }
+        close();
         return super.onUnbind(intent);
+    }
+
+    private void close() {
+        if (bluetoothGatt == null) {
+            return;
+        }
+        bluetoothGatt.close();
+        bluetoothGatt = null;
+    }
+
+    private void broadcastUpdate(final String action) {
+        final Intent intent = new Intent(action);
+        sendBroadcast(intent);
     }
 
     public boolean initialize() {
@@ -234,7 +280,7 @@ public class BTLEService extends Service {
         } else if (device == null) {
             return false;
         } else {
-            bluetoothGatt = device.connectGatt(this, false, gattCallback);
+            bluetoothGatt = device.connectGatt(this, true, gattCallback, BluetoothDevice.TRANSPORT_LE);
             Log.d(TAG, "Trying to create a new connection.");
             deviceAdress = address;
             return true;
@@ -243,6 +289,95 @@ public class BTLEService extends Service {
 
     public void disconnect() {
         bluetoothGatt.disconnect();
+    }
+
+    public boolean readCharacteristic(final BluetoothGattCharacteristic characteristic) {
+        if (!isConnected() || characteristic == null || (characteristic.getProperties() & PROPERTY_READ) == 0) {
+            return false;
+        }
+
+        boolean result = commandQueue.add(new Runnable() {
+            @Override
+            public void run() {
+                if (isConnected()) {
+                    if (bluetoothGatt.readCharacteristic(characteristic)) {
+                        Log.d(TAG, "reading Characteristic: " + characteristic.getUuid());
+                        tries++;
+                    } else {
+                        commandCompleted();
+                    }
+                } else {
+                    commandCompleted();
+                }
+            }
+        });
+
+        if (result) {
+            nextCommand();
+        }
+
+        return result;
+    }
+
+  /*  public boolean writeCharacteristics(BluetoothGattCharacteristic characteristic, byte[] value, WriteType writeType) {
+        if (!isConnected()) {
+            return false;
+        }
+
+        return result;
+    }*/
+
+    private void nextCommand() {
+        if (commandQueueBusy) {
+            return;
+        }
+        if (bluetoothGatt == null) {
+            commandQueue.clear();
+            commandQueueBusy = false;
+            return;
+        }
+        if (commandQueue.size() > 0) {
+            final Runnable bleCommand = commandQueue.peek();
+            commandQueueBusy = true;
+            if (!isRetrying) {
+                tries = 0;
+            }
+            handler.post(new Runnable() {
+                @Override
+                public void run() {
+                    try {
+                        bleCommand.run();
+                    } catch (Exception e) {
+                        Log.d(TAG, "Commandqueue Error: " + e);
+                        commandCompleted();
+                    }
+                }
+            });
+        }
+    }
+
+    private void commandCompleted() {
+        isRetrying = false;
+        commandQueueBusy = false;
+        commandQueue.poll();
+        nextCommand();
+    }
+
+    private void retryingCommand() {
+        commandQueueBusy = false;
+        Runnable currentCommand = commandQueue.peek();
+        if (currentCommand != null) {
+            if (tries >= MAX_TRIES) {
+                commandQueue.poll();
+            } else {
+                isRetrying = true;
+            }
+        }
+        nextCommand();
+    }
+
+    private boolean isConnected() {
+        return bluetoothGatt != null && connectionState == STATE_CONNECTED;
     }
 
 

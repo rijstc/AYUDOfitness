@@ -7,10 +7,17 @@ public class Constants {
             "ACTION_GATT_DISCONNECTED";
     public final static String ACTION_GATT_SERVICES_DISCOVERED =
             "ACTION_GATT_SERVICES_DISCOVERED";
-    public final static String ACTION_DATA_AVAILABLE =
-            "ACTION_DATA_AVAILABLE";
-    public final static String EXTRA_DATA =
-            "EXTRA_DATA";
+    public final static String AUTH_OK = "AUTH_OK";
+
+    public static final int STATE_DISCONNECTED = 0;
+    public static final int STATE_CONNECTED = 2;
+
+    public final static String TAG = "debugging";
+    public static final String EXTRAS_DEVICE = "DEVICE";
+    public static final String MYPREF = "myCustomSharedPref";
+    public static final String PREF_KEY_FIRST_RUN = "firstrun";
+    public static final String PREF_KEY_ADRESS = "deviceAdress";
+
 
     public static final String ACTION_MIBAND = "com.example.ayudofitness.action.miband";
     public static final String ACTION_MIBAND_SERVICE = "com.example.ayudofitness.action.miband_service";

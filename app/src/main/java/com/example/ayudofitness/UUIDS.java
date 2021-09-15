@@ -7,8 +7,14 @@ public class UUIDS {
 
     public static final String BASE_UUID = "0000%s-0000-1000-8000-00805f9b34fb";
 
-    public static final UUID SERVICE = UUID.fromString("0000fee1-0000-1000-8000-00805f9b34fb");
-    //public static final UUID UUID_SERVICE_MILI_SERVICE = UUID.fromString(String.format(BASE_UUID, "FEE0"));
+    public static final UUID SERVICE_0 = UUID.fromString("0000fee0-0000-1000-8000-00805f9b34fb");
+    public static final UUID SERVICE_1 = UUID.fromString("0000fee1-0000-1000-8000-00805f9b34fb");
+
+    public static final UUID UUID_CHAR_AUTH = UUID.fromString("00000009-0000-3512-2118-0009af100700");
+    public static final UUID NOTIFICATION_DESC = UUID.fromString("00002902-0000-1000-8000-00805f9b34fb");
+    public static final UUID UUID_CHAR_STEPS = UUID.fromString("00000007-0000-3512-2118-0009af100700");
+
+
 
     public static final UUID UUID_CHARACTERISTIC_DEVICE_INFO = UUID.fromString(String.format(BASE_UUID, "FF01"));
 
@@ -20,7 +26,6 @@ public class UUIDS {
 
     public static final UUID UUID_CHARACTERISTIC_CONTROL_POINT = UUID.fromString(String.format(BASE_UUID, "FF05"));
 
-    public static final UUID UUID_CHARACTERISTIC_REALTIME_STEPS = UUID.fromString(String.format(BASE_UUID, "FF06"));
 
     public static final UUID UUID_CHARACTERISTIC_ACTIVITY_DATA = UUID.fromString(String.format(BASE_UUID, "FF07"));
 
@@ -38,88 +43,9 @@ public class UUIDS {
 
     public static final UUID UUID_CHARACTERISTIC_SENSOR_DATA = UUID.fromString(String.format(BASE_UUID, "FF0E"));
 
-    public static final UUID CHAR_AUTH = UUID.fromString("00000009-0000-3512-2118-0009af100700");
-    public static final UUID NOTIFICATION_DESC =
-            UUID.fromString("00002902-0000-1000-8000-00805f9b34fb");
 
-    public static final byte ALIAS_LEN = 0xa;
 
-    public static final byte NOTIFY_AUTHENTICATION_FAILED = 0x6;
 
-    public static final byte NOTIFY_AUTHENTICATION_SUCCESS = 0x5;
 
-    public static final byte NOTIFY_CONN_PARAM_UPDATE_FAILED = 0x3;
-
-    public static final byte NOTIFY_CONN_PARAM_UPDATE_SUCCESS = 0x4;
-
-    public static final int NOTIFY_DEVICE_MALFUNCTION = 0xff;
-
-    public static final byte NOTIFY_FIRMWARE_UPDATE_FAILED = 0x1;
-
-    public static final byte NOTIFY_FIRMWARE_UPDATE_SUCCESS = 0x2;
-
-    public static final byte NOTIFY_FITNESS_GOAL_ACHIEVED = 0x7;
-
-    public static final byte NOTIFY_FW_CHECK_FAILED = 0xb;
-
-    public static final byte NOTIFY_FW_CHECK_SUCCESS = 0xc;
-
-    public static final byte NOTIFY_NORMAL = 0x0;
-
-    public static final int NOTIFY_PAIR_CANCEL = 0xef;
-
-    public static final byte NOTIFY_RESET_AUTHENTICATION_FAILED = 0x9;
-
-    public static final byte NOTIFY_RESET_AUTHENTICATION_SUCCESS = 0xa;
-
-    public static final byte NOTIFY_SET_LATENCY_SUCCESS = 0x8;
-
-    public static final byte NOTIFY_STATUS_MOTOR_ALARM = 0x11;
-
-    public static final byte NOTIFY_STATUS_MOTOR_AUTH = 0x13;
-
-    public static final byte NOTIFY_STATUS_MOTOR_AUTH_SUCCESS = 0x15;
-
-    public static final byte NOTIFY_STATUS_MOTOR_CALL = 0xe;
-
-    public static final byte NOTIFY_STATUS_MOTOR_DISCONNECT = 0xf;
-
-    public static final byte NOTIFY_STATUS_MOTOR_GOAL = 0x12;
-
-    public static final byte NOTIFY_STATUS_MOTOR_NOTIFY = 0xd;
-
-    public static final byte NOTIFY_STATUS_MOTOR_SHUTDOWN = 0x14;
-
-    public static final byte NOTIFY_STATUS_MOTOR_SMART_ALARM = 0x10;
-
-    public static final byte NOTIFY_STATUS_MOTOR_TEST = 0x16;
-
-    public static final byte NOTIFY_UNKNOWN = -0x1;
-
-    //public static final String UUID_CHARACTERISTIC_CONTROL_POINT = "00001542-0000-3512-2118-0009af100700";
-
-    public static final String UUID_CHARACTERISTIC_FEATURE = "2A9E";
-
-    public static final String UUID_CHARACTERISTIC_MEASUREMENT = "2A9D";
-
-    public static final String UUID_SERVICE_WEIGHT_SCALE_SERVICE = "181D";
-
-    public static final String UUID_SERVICE_FIRMWARE_SERVICE = "00001530-0000-3512-2118-0009af100700";
-
-    public static final byte MSG_CONNECTED = 0x0;
-
-    public static final byte MSG_DISCONNECTED = 0x1;
-
-    public static final byte MSG_CONNECTION_FAILED = 0x2;
-
-    public static final byte MSG_INITIALIZATION_FAILED = 0x3;
-
-    public static final byte MSG_INITIALIZATION_SUCCESS = 0x4;
-
-    public static final byte MSG_STEPS_CHANGED = 0x5;
-
-    public static final byte MSG_DEVICE_STATUS_CHANGED = 0x6;
-
-    public static final byte MSG_BATTERY_STATUS_CHANGED = 0x7;
 
 }
