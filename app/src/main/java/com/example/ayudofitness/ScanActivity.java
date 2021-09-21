@@ -34,11 +34,6 @@ import static com.example.ayudofitness.Constants.*;
 
 public class ScanActivity extends AppCompatActivity {
 
-    private static final String TAG = "debugging";
-
-    private static final int REQUEST_ENABLE_BT = 1;
-    private static final int PERMISSION_REQUEST_COARSE_LOCATION = 1;
-
     private BluetoothAdapter bluetoothAdapter;
     private BluetoothLeScanner bluetoothLeScanner;
     private AlertDialog.Builder builder;
@@ -202,24 +197,25 @@ public class ScanActivity extends AppCompatActivity {
             if (Build.VERSION.SDK_INT >= 23) {
                 if (ContextCompat.checkSelfPermission(getApplicationContext(),
                         Manifest.permission_group.LOCATION) == PackageManager.PERMISSION_DENIED) {
-                    builder = new AlertDialog.Builder(this);
+                   builder = new AlertDialog.Builder(this);
                     builder.setTitle("Standortzugriff wird benötigt.");
                     builder.setMessage("Bitte geben Sie den Standortzugriff frei.");
                     builder.setPositiveButton(android.R.string.ok, null);
                     builder.setOnDismissListener(new DialogInterface.OnDismissListener() {
                         @Override
                         public void onDismiss(DialogInterface dialog) {
-                            requestPermissions(new String[]{Manifest.permission.ACCESS_COARSE_LOCATION,
-                                    Manifest.permission.ACCESS_FINE_LOCATION}, REQUEST_ENABLE_BT);
+                    requestPermissions(new String[]{Manifest.permission.ACCESS_COARSE_LOCATION,
+                            Manifest.permission.ACCESS_FINE_LOCATION}, REQUEST_ENABLE_BT);
                         }
                     });
                     builder.show();
                 }
+                }
+            } else {
+                Toast.makeText(this, "Bluetooth LE wird von diesem" +
+                        "Gerät nicht unterstützt.", Toast.LENGTH_LONG).show();
+                finish();
             }
-        } else {
-            Toast.makeText(this, "Bluetooth LE wird von diesem" +
-                    "Gerät nicht unterstützt.", Toast.LENGTH_LONG).show();
-            finish();
         }
-    }
+
 }

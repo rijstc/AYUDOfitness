@@ -2,7 +2,7 @@ package com.example.ayudofitness;
 
 import static com.example.ayudofitness.Constants.ACTION_GATT_CONNECTED;
 import static com.example.ayudofitness.Constants.ACTION_GATT_DISCONNECTED;
-import static com.example.ayudofitness.Constants.AUTH_OK;
+import static com.example.ayudofitness.Constants.ACTION_AUTH_OK;
 
 import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothDevice;
@@ -23,10 +23,12 @@ import androidx.appcompat.app.AppCompatActivity;
 
 import static com.example.ayudofitness.Constants.*;
 
+import java.util.UUID;
+
 public class PairingActivity extends AppCompatActivity {
 
 
-    private TextView textView;
+    private TextView heartRate;
     private String deviceName;
     private String deviceAddress;
     private BTLEService btleService;
@@ -34,7 +36,7 @@ public class PairingActivity extends AppCompatActivity {
     private BluetoothAdapter bluetoothAdapter;
     private BluetoothDevice device;
     private boolean connected = false;
-
+    //SharedPreferences customSharedPreferences = getSharedPreferences(MYPREF, Context.MODE_PRIVATE);
 
     private final ServiceConnection serviceConnection = new ServiceConnection() {
         @Override
@@ -45,6 +47,7 @@ public class PairingActivity extends AppCompatActivity {
             }
             device.createBond();
             btleService.connect(device);
+
         }
 
         @Override
@@ -62,14 +65,18 @@ public class PairingActivity extends AppCompatActivity {
                     connected = true;
                 case ACTION_GATT_DISCONNECTED:
                     connected = false;
-                case AUTH_OK:
-                    if (device != null && device.getBondState() == BluetoothDevice.BOND_NONE) {
+                case ACTION_AUTH_OK:
                         SharedPreferences customSharedPreferences = getSharedPreferences(MYPREF, Context.MODE_PRIVATE);
                         SharedPreferences.Editor editor = customSharedPreferences.edit();
-                        editor.putBoolean(PREF_KEY_FIRST_RUN, false);
+                        editor.putBoolean(PREF_KEY_FIRST_RUN, true); //todo set false
                         editor.putString(PREF_KEY_ADRESS, deviceAddress);
                         editor.apply();
-                    }
+                        Log.d(TAG, "new address set: "+customSharedPreferences.getString(PREF_KEY_ADRESS,"test"));
+                case ACTION_STEPS:
+                    int steps = intent.getIntExtra(EXTRAS_STEPS, 0);
+                   // String characteristic = intent.getExtras().getString("char");
+                    Log.d(TAG, "steps: "+steps);
+
             }
             ;
         }
@@ -81,12 +88,13 @@ public class PairingActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.connect_device);
 
-        textView = findViewById(R.id.textView);
+        heartRate = findViewById(R.id.tVHeartRate);
         final Intent intent = getIntent();
         device = intent.getExtras().getParcelable(EXTRAS_DEVICE);
         deviceName = device.getName();
         deviceAddress = device.getAddress();
-        textView.setText(deviceName);
+//        heartRate.setText(btleService.heartRate);
+        registerReceiver(gattUpdateReceiver, makeGattUpdateIntentFilter());
 
 
         Intent gattServiceIntent = new Intent(this, BTLEService.class);
@@ -99,7 +107,7 @@ public class PairingActivity extends AppCompatActivity {
     @Override
     protected void onResume() {
         super.onResume();
-        registerReceiver(gattUpdateReceiver, makeGattUpdateIntenFilter());
+        registerReceiver(gattUpdateReceiver, makeGattUpdateIntentFilter());
         if (btleService != null) {
             final boolean result = btleService.connect(device);
         }
@@ -111,10 +119,12 @@ public class PairingActivity extends AppCompatActivity {
         unregisterReceiver(gattUpdateReceiver);
     }
 
-    private IntentFilter makeGattUpdateIntenFilter() {
+    private IntentFilter makeGattUpdateIntentFilter() {
         final IntentFilter intentFilter = new IntentFilter();
         intentFilter.addAction(ACTION_GATT_CONNECTED);
         intentFilter.addAction(ACTION_GATT_DISCONNECTED);
+        intentFilter.addAction(ACTION_AUTH_OK);
+        intentFilter.addAction(ACTION_STEPS);
         return intentFilter;
     }
 

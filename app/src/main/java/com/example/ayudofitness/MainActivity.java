@@ -32,7 +32,9 @@ public class MainActivity extends AppCompatActivity implements SharedPreferences
         if(firstrun){
             startActivity(new Intent(MainActivity.this, ScanActivity.class));
         }
-        initializeView();
+        else{
+        //    startActivity(new Intent(MainActivity.this, PairingActivity.class));
+        }
     }
 
     private void initializeView() {
