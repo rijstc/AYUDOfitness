@@ -15,5 +15,15 @@
     <string name="search">Start</string>
     <string name="stop">Stopp</string>
 
+    <string name="puls">Puls</string>
+    <string name="puls_data">60</string>
 
+    <string name="steps">Schritte</string>
+    <string name="steps_data">8000</string>
+
+    <string name="btScan">Suchen</string>
+    <string name="btPair">Verbinden</string>
+    <string name="btHeartRate">Puls</string>
+    <string name="btSteps">Schritte</string>
+    <string name="btUser">Userdaten</string>
 </resources>

@@ -14,6 +14,7 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.os.Binder;
+import android.os.Build;
 import android.os.Handler;
 import android.os.IBinder;
 import android.os.Looper;
@@ -24,6 +25,7 @@ import androidx.annotation.Nullable;
 import java.security.InvalidKeyException;
 import java.security.NoSuchAlgorithmException;
 import java.util.Arrays;
+import java.util.Base64;
 import java.util.Queue;
 import java.util.UUID;
 
@@ -46,6 +48,7 @@ public class BTLEService extends Service {
 
     private static final byte[] BYTE_LAST_HEART_RATE_SCAN = {21, 1, 1};
     private static final byte[] BYTE_NEW_HEART_RATE_SCAN = {21, 2, 1};
+    private static final byte[] ENABLE_REALTIME_STEPS_NOTIFY = {3, 1};
 
     private BluetoothGattService service0;
     private BluetoothGattService service1;
@@ -54,9 +57,11 @@ public class BTLEService extends Service {
     private BluetoothGattCharacteristic authChar;
     private BluetoothGattCharacteristic heartRateChar;
     private BluetoothGattCharacteristic stepChar;
+    private BluetoothGattCharacteristic userChar;
 
     private BluetoothGattDescriptor authDesc;
     private BluetoothGattDescriptor heartRateDesc;
+    private BluetoothGattDescriptor stepDesc;
 
     private Queue<Runnable> commandQueue;
     private boolean commandQueueBusy;
@@ -100,17 +105,19 @@ public class BTLEService extends Service {
                 SharedPreferences preferences = getApplicationContext().getSharedPreferences(MYPREF, Context.MODE_PRIVATE);
                 broadcastUpdate(ACTION_GATT_SERVICES_DISCOVERED);
             /*    for (BluetoothGattService service : gatt.getServices()) {
-                    Log.d(TAG, "service: " + service.getUuid());
+                   Log.d(TAG, "---------------service: " + service.getUuid());
 
                     for (BluetoothGattCharacteristic characteristic : service.getCharacteristics()) {
-                        Log.d(TAG, "characteristic: " + characteristic.getUuid() + ", properties: " + characteristic.getProperties());
-                    }
+                        Log.d(TAG, "++++++++++++++++characteristic: " + characteristic.getUuid() + ", properties: " + characteristic.getProperties());
+                     for (BluetoothGattDescriptor descriptor : characteristic.getDescriptors()) {
+                        Log.d(TAG, "################descriptors: " + descriptor.getUuid() + ", properties: " + characteristic.getProperties());
+                    }}
                 }*/
                 if (preferences.getBoolean(PREF_KEY_FIRST_RUN, true)) {
                     authorise(gatt);
                 }
 
-                handler.postDelayed(new Runnable() {
+            /*    handler.postDelayed(new Runnable() {
                     @Override
                     public void run() {
                         setupHeartRate(gatt);
@@ -122,9 +129,21 @@ public class BTLEService extends Service {
                     public void run() {
                         getNewHeartRate();
                     }
+                }, 5000);*/
+
+                handler.postDelayed(new Runnable() {
+                    @Override
+                    public void run() {
+                        setupSteps(gatt);
+                    }
                 }, 5000);
 
-
+                handler.postDelayed(new Runnable() {
+                    @Override
+                    public void run() {
+                        getSteps();
+                    }
+                }, 5000);
             } else {
                 disconnect();
                 return;
@@ -140,6 +159,7 @@ public class BTLEService extends Service {
                 if (charRead.equals(UUIDS.UUID_CHAR_STEPS)) {
                     byte[] stepsValue = new byte[]{value[1], value[2]};
                     int steps = (stepsValue[0] & 0xff) | ((stepsValue[1] & 0xff) << 8);
+                    Log.d(TAG,"---------------Steps: "+steps);
                     intent.setAction(ACTION_STEPS).putExtra(EXTRAS_STEPS, steps);
                 }
                 sendBroadcast(intent);
@@ -172,6 +192,9 @@ public class BTLEService extends Service {
                         Log.d(TAG, "auth ok");
                         break;
                 }
+            } else if(charChanged.equals(UUIDS.UUID_USER_INFO)){
+                userChar.setValue(new byte[]{0x02});
+                gatt.writeCharacteristic(userChar);
             } else if (charChanged.equals(UUIDS.UUID_NOTIFICATION_HEARTRATE)) {
                 final byte heartRate = value[1];
                 handler.post(new Runnable() {
@@ -182,8 +205,8 @@ public class BTLEService extends Service {
                 });
             } else if (charChanged.equals(UUIDS.UUID_CHAR_STEPS)) {
                 byte[] stepsValue = new byte[]{value[1], value[2]};
-                int steps = (stepsValue[0] & 0xff) | ((stepsValue[1] & 0xff) << 8);
-                // int steps = value[3] << 24 | (value[2] & 0xFF) << 16 | (value[1] & 0xFF) << 8 | (value[0] & 0xFF);
+               // int steps = (stepsValue[0] & 0xff) | ((stepsValue[1] & 0xff) << 8);
+                int steps = value[3] << 24 | (value[2] & 0xFF) << 16 | (value[1] & 0xFF) << 8 | (value[0] & 0xFF);
                 intent.setAction(ACTION_STEPS).putExtra(EXTRAS_STEPS, steps);
 
             } else {
@@ -199,16 +222,19 @@ public class BTLEService extends Service {
             UUID descChar = descriptor.getCharacteristic().getUuid();
             if (status == GATT_SUCCESS) {
                 if (descChar.equals(UUIDS.UUID_CHAR_AUTH)) {
-                    Log.d(TAG, "ondescriptorwrite: auth");
-
                     byte[] authKey = ArrayUtils.addAll(BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE, AUTH_CHAR_KEY);
                     authChar.setValue(authKey);
                     gatt.writeCharacteristic(authChar);
                 }
                 if (descChar.equals(UUIDS.HEART_RATE_MEASUREMENT_CHARACTERISTIC)) {
-                    Log.d(TAG, "ondescriptorwrite: heartrate");
+                    byte[] heartrateData = descriptor.getValue();
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                        Log.d(TAG, "++++++++++++++++++++descriptor heart rate: "+ Base64.getEncoder().encodeToString(heartrateData));
+                    }
                 }
+                if (descChar.equals(UUIDS.UUID_CHAR_STEPS)){
 
+                }
             } else {
                 throw new IllegalStateException("Unexpected value: " + descriptor.getCharacteristic().getUuid().toString());
             }
@@ -217,7 +243,7 @@ public class BTLEService extends Service {
         @Override
         public void onDescriptorRead(BluetoothGatt gatt, BluetoothGattDescriptor descriptor, int status) {
             Log.d(TAG, "ondescriptorread: " + descriptor.getUuid().toString() + " Read" + "status: " + status);
-            //commandCompleted();
+
         }
 
     };
@@ -279,6 +305,22 @@ public class BTLEService extends Service {
         BluetoothGattCharacteristic charHeartControl = serviceHeartRate.getCharacteristic(UUIDS.HEART_RATE_CONTROL_POINT_CHARACTERISTIC);
         charHeartControl.setValue(BYTE_NEW_HEART_RATE_SCAN);
     }
+
+
+    public void setupSteps(BluetoothGatt gatt) {
+        service0 = gatt.getService(UUIDS.SERVICE_0);
+        stepChar = service0.getCharacteristic(UUIDS.UUID_CHAR_STEPS);
+        stepDesc = stepChar.getDescriptor(UUIDS.NOTIFICATION_DESC);
+
+        gatt.setCharacteristicNotification(stepChar, true);
+        stepDesc.setValue(BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE);
+        gatt.writeDescriptor(stepDesc);
+    }
+
+    private void getSteps() {
+
+    }
+
 
     public class LocalBinder extends Binder {
         BTLEService getService() {

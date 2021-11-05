@@ -16,6 +16,7 @@ import android.content.pm.PackageManager;
 import android.os.AsyncTask;
 import android.os.Build;
 import android.os.Bundle;
+import android.util.Log;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
@@ -29,6 +30,7 @@ import androidx.core.content.ContextCompat;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Set;
 
 import static com.example.ayudofitness.Constants.*;
 
@@ -42,7 +44,7 @@ public class ScanActivity extends AppCompatActivity {
     private boolean scanning;
     private BluetoothDevice bluetoothDevice;
     private BluetoothDevice foundMiBand;
-    private BTLEService BTLEService = new BTLEService();
+    //private BTLEService BTLEService = new BTLEService();
 
     private ScanCallback scanCallback = new ScanCallback() {
         @Override
@@ -99,6 +101,20 @@ public class ScanActivity extends AppCompatActivity {
         }
 
         getPermissions();
+
+        Set<BluetoothDevice> pairedDevices = bluetoothAdapter.getBondedDevices();
+
+        if (pairedDevices.size() > 0) {
+            // There are paired devices. Get the name and address of each paired device.
+            for (BluetoothDevice device : pairedDevices) {
+                String deviceName = device.getName();
+                String deviceHardwareAddress = device.getAddress(); // MAC address
+                Log.d(TAG, deviceName);
+                if (deviceName.equals("Mi Band 3")){
+                  //  BTLEService.getNewHeartRate();
+                }
+            }
+        }
     }
 
     @Override
