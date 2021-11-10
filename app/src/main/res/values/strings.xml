@@ -1,22 +1,9 @@
 <resources>
     <string name="app_name">AYUDOfitness</string>
 
-    <string name="startScan">Suche Geräte</string>
-    <string name="stopScan">Stoppe Suche</string>
-    <string name="ok">Okay</string>
-
     <string name="unknownDevice">Unbekanntes Gerät</string>
 
-
-    <string name="searchMI">Suche MiBand</string>
-    <string name="notFound">Das MiBand konnte nicht gefunden werden.</string>
-    <string name="searchDevice">Suche Geräte</string>
-    <string name="deviceInfo">Zeige Geräteinfos</string>
-    <string name="search">Start</string>
-    <string name="stop">Stopp</string>
-
-    <string name="puls">Puls</string>
-    <string name="puls_data">60</string>
+    <string name="hr_data">%1$s bpm</string>
 
     <string name="steps">Schritte</string>
     <string name="steps_data">8000</string>

@@ -10,6 +10,9 @@ import android.bluetooth.BluetoothGattDescriptor;
 import android.bluetooth.BluetoothGattService;
 import android.bluetooth.BluetoothManager;
 import android.bluetooth.BluetoothProfile;
+import android.bluetooth.le.BluetoothLeScanner;
+import android.bluetooth.le.ScanCallback;
+import android.bluetooth.le.ScanResult;
 import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
@@ -22,6 +25,7 @@ import android.util.Log;
 
 import androidx.annotation.Nullable;
 
+import java.nio.ByteBuffer;
 import java.security.InvalidKeyException;
 import java.security.NoSuchAlgorithmException;
 import java.util.Arrays;
@@ -46,9 +50,7 @@ public class BTLEService extends Service {
             (byte) 0xf5, (byte) 0xd2, 0x29, (byte) 0x87, 0x65, 0x0a, 0x1d, (byte) 0x82, 0x05,
             (byte) 0xab, (byte) 0x82, (byte) 0xbe, (byte) 0xb9, 0x38, 0x59, (byte) 0xcf};
 
-    private static final byte[] BYTE_LAST_HEART_RATE_SCAN = {21, 1, 1};
     private static final byte[] BYTE_NEW_HEART_RATE_SCAN = {21, 2, 1};
-    private static final byte[] ENABLE_REALTIME_STEPS_NOTIFY = {3, 1};
 
     private BluetoothGattService service0;
     private BluetoothGattService service1;
@@ -57,40 +59,29 @@ public class BTLEService extends Service {
     private BluetoothGattCharacteristic authChar;
     private BluetoothGattCharacteristic heartRateChar;
     private BluetoothGattCharacteristic stepChar;
-    private BluetoothGattCharacteristic userChar;
 
     private BluetoothGattDescriptor authDesc;
     private BluetoothGattDescriptor heartRateDesc;
     private BluetoothGattDescriptor stepDesc;
 
-    private Queue<Runnable> commandQueue;
-    private boolean commandQueueBusy;
-    private int tries = 0;
-    private boolean isRetrying;
+    private boolean scanning = false;
+
     private final Handler handler = new Handler(Looper.getMainLooper());
-    private static final int MAX_TRIES = 2;
     private byte[] currentWriteBytes = new byte[0];
 
-
-    private BluetoothManager bluetoothManager;
-    private BluetoothAdapter bluetoothAdapter;
-    private String deviceAdress;
     private BluetoothDevice device;
-    private int connectionState;
 
     private final IBinder iBinder = new LocalBinder();
+    private Intent intent = new Intent();
+
     private BluetoothGatt bluetoothGatt;
     private final BluetoothGattCallback gattCallback = new BluetoothGattCallback() {
         @Override
         public void onConnectionStateChange(BluetoothGatt gatt, int status, int newState) {
             if (status == GATT_SUCCESS) {
                 if (newState == BluetoothProfile.STATE_CONNECTED) {
-                    connectionState = STATE_CONNECTED;
-                    broadcastUpdate(ACTION_GATT_CONNECTED);
                     gatt.discoverServices();
                 } else if (newState == BluetoothProfile.STATE_DISCONNECTED) {
-                    connectionState = STATE_DISCONNECTED;
-                    broadcastUpdate(ACTION_GATT_DISCONNECTED);
                     gatt.close();
                 }
             } else {
@@ -102,48 +93,9 @@ public class BTLEService extends Service {
         public void onServicesDiscovered(BluetoothGatt gatt, int status) {
 
             if (status == GATT_SUCCESS) {
-                SharedPreferences preferences = getApplicationContext().getSharedPreferences(MYPREF, Context.MODE_PRIVATE);
-                broadcastUpdate(ACTION_GATT_SERVICES_DISCOVERED);
-            /*    for (BluetoothGattService service : gatt.getServices()) {
-                   Log.d(TAG, "---------------service: " + service.getUuid());
-
-                    for (BluetoothGattCharacteristic characteristic : service.getCharacteristics()) {
-                        Log.d(TAG, "++++++++++++++++characteristic: " + characteristic.getUuid() + ", properties: " + characteristic.getProperties());
-                     for (BluetoothGattDescriptor descriptor : characteristic.getDescriptors()) {
-                        Log.d(TAG, "################descriptors: " + descriptor.getUuid() + ", properties: " + characteristic.getProperties());
-                    }}
-                }*/
-                if (preferences.getBoolean(PREF_KEY_FIRST_RUN, true)) {
-                    authorise(gatt);
-                }
-
-            /*    handler.postDelayed(new Runnable() {
-                    @Override
-                    public void run() {
-                        setupHeartRate(gatt);
-                    }
-                }, 5000);
-
-                handler.postDelayed(new Runnable() {
-                    @Override
-                    public void run() {
-                        getNewHeartRate();
-                    }
-                }, 5000);*/
-
-                handler.postDelayed(new Runnable() {
-                    @Override
-                    public void run() {
-                        setupSteps(gatt);
-                    }
-                }, 5000);
-
-                handler.postDelayed(new Runnable() {
-                    @Override
-                    public void run() {
-                        getSteps();
-                    }
-                }, 5000);
+                authorise(gatt);
+                setupSteps(gatt);
+                setupHeartRate(gatt);
             } else {
                 disconnect();
                 return;
@@ -153,16 +105,8 @@ public class BTLEService extends Service {
         @Override
         public void onCharacteristicRead(BluetoothGatt gatt, BluetoothGattCharacteristic characteristic, int status) {
             if (status == GATT_SUCCESS) {
-                Intent intent = new Intent();
                 UUID charRead = characteristic.getUuid();
                 byte[] value = characteristic.getValue();
-                if (charRead.equals(UUIDS.UUID_CHAR_STEPS)) {
-                    byte[] stepsValue = new byte[]{value[1], value[2]};
-                    int steps = (stepsValue[0] & 0xff) | ((stepsValue[1] & 0xff) << 8);
-                    Log.d(TAG,"---------------Steps: "+steps);
-                    intent.setAction(ACTION_STEPS).putExtra(EXTRAS_STEPS, steps);
-                }
-                sendBroadcast(intent);
             }
         }
 
@@ -176,7 +120,6 @@ public class BTLEService extends Service {
         public void onCharacteristicChanged(BluetoothGatt gatt, BluetoothGattCharacteristic characteristic) {
             UUID charChanged = characteristic.getUuid();
             byte[] value = characteristic.getValue();
-            Intent intent = new Intent();
             if (charChanged.equals(UUIDS.UUID_CHAR_AUTH)) {
                 byte[] authValue = Arrays.copyOfRange(value, 0, 3);
                 switch (Arrays.toString(authValue)) {
@@ -188,33 +131,33 @@ public class BTLEService extends Service {
                         authenticate(gatt, characteristic);
                         break;
                     case "[16, 3, 1]":
-                        broadcastUpdate(ACTION_AUTH_OK);
-                        Log.d(TAG, "auth ok");
+                        intent.setAction(ACTION_AUTH_OK).putExtra(EXTRAS_AUTH, true);
+                        sendBroadcast(intent);
                         break;
                 }
-            } else if(charChanged.equals(UUIDS.UUID_USER_INFO)){
-                userChar.setValue(new byte[]{0x02});
-                gatt.writeCharacteristic(userChar);
+            } else if (charChanged.equals(UUIDS.UUID_CHAR_STEPS)) {
+                byte[] newSteps = new byte[]{value[1], value[2], value[3], value[4]};
+                int steps = newSteps[3] << 24 | (newSteps[2] & 0xFF) << 16 | (newSteps[1] & 0xFF) << 8 | (newSteps[0] & 0xFF);
+                handler.post(new Runnable() {
+                    @Override
+                    public void run() {
+                        intent.setAction(ACTION_STEPS).putExtra(EXTRAS_STEPS, steps);
+                        sendBroadcast(intent);
+                    }
+                });
             } else if (charChanged.equals(UUIDS.UUID_NOTIFICATION_HEARTRATE)) {
                 final byte heartRate = value[1];
                 handler.post(new Runnable() {
                     @Override
                     public void run() {
-                        Log.d(TAG, "heartbeat: " + Byte.toString(heartRate));
+                        intent.setAction(ACTION_HR).putExtra(EXTRAS_HR, Byte.toString(heartRate));
+                        sendBroadcast(intent);
                     }
                 });
-            } else if (charChanged.equals(UUIDS.UUID_CHAR_STEPS)) {
-                byte[] stepsValue = new byte[]{value[1], value[2]};
-               // int steps = (stepsValue[0] & 0xff) | ((stepsValue[1] & 0xff) << 8);
-                int steps = value[3] << 24 | (value[2] & 0xFF) << 16 | (value[1] & 0xFF) << 8 | (value[0] & 0xFF);
-                intent.setAction(ACTION_STEPS).putExtra(EXTRAS_STEPS, steps);
-
             } else {
                 throw new IllegalStateException("Unexpected value: " + characteristic.getUuid());
             }
-
             sendBroadcast(intent);
-
         }
 
         @Override
@@ -226,15 +169,6 @@ public class BTLEService extends Service {
                     authChar.setValue(authKey);
                     gatt.writeCharacteristic(authChar);
                 }
-                if (descChar.equals(UUIDS.HEART_RATE_MEASUREMENT_CHARACTERISTIC)) {
-                    byte[] heartrateData = descriptor.getValue();
-                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                        Log.d(TAG, "++++++++++++++++++++descriptor heart rate: "+ Base64.getEncoder().encodeToString(heartrateData));
-                    }
-                }
-                if (descChar.equals(UUIDS.UUID_CHAR_STEPS)){
-
-                }
             } else {
                 throw new IllegalStateException("Unexpected value: " + descriptor.getCharacteristic().getUuid().toString());
             }
@@ -242,12 +176,8 @@ public class BTLEService extends Service {
 
         @Override
         public void onDescriptorRead(BluetoothGatt gatt, BluetoothGattDescriptor descriptor, int status) {
-            Log.d(TAG, "ondescriptorread: " + descriptor.getUuid().toString() + " Read" + "status: " + status);
-
         }
-
     };
-
 
     private void authenticate(BluetoothGatt gatt, BluetoothGattCharacteristic characteristic) {
         byte[] value = characteristic.getValue();
@@ -291,9 +221,9 @@ public class BTLEService extends Service {
 
     }
 
-    public void setupHeartRate(BluetoothGatt gatt) {
+    private void setupHeartRate(BluetoothGatt gatt) {
         serviceHeartRate = gatt.getService(UUIDS.HEART_RATE_SERVICE);
-        heartRateChar = serviceHeartRate.getCharacteristic(UUIDS.HEART_RATE_MEASUREMENT_CHARACTERISTIC);
+        heartRateChar = serviceHeartRate.getCharacteristic(UUIDS.UUID_NOTIFICATION_HEARTRATE);
         heartRateDesc = heartRateChar.getDescriptor(UUIDS.NOTIFICATION_DESC);
 
         gatt.setCharacteristicNotification(heartRateChar, true);
@@ -306,19 +236,13 @@ public class BTLEService extends Service {
         charHeartControl.setValue(BYTE_NEW_HEART_RATE_SCAN);
     }
 
-
-    public void setupSteps(BluetoothGatt gatt) {
+    private void setupSteps(BluetoothGatt gatt) {
         service0 = gatt.getService(UUIDS.SERVICE_0);
         stepChar = service0.getCharacteristic(UUIDS.UUID_CHAR_STEPS);
         stepDesc = stepChar.getDescriptor(UUIDS.NOTIFICATION_DESC);
-
         gatt.setCharacteristicNotification(stepChar, true);
         stepDesc.setValue(BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE);
         gatt.writeDescriptor(stepDesc);
-    }
-
-    private void getSteps() {
-
     }
 
 
@@ -348,57 +272,48 @@ public class BTLEService extends Service {
         bluetoothGatt = null;
     }
 
-    private void broadcastUpdate(final String action) {
-        final Intent intent = new Intent(action);
-        sendBroadcast(intent);
-    }
-
-    public boolean initialize() {
-        if (bluetoothManager == null) {
-            bluetoothManager = (BluetoothManager) getSystemService(Context.BLUETOOTH_SERVICE);
-            if (bluetoothManager == null) {
-                return false;
+    //Scanning 10 sec for Mi Band 3; returns true and bluetooth device, if found.
+    public void scan(BluetoothAdapter btadapter) {
+        final long SCAN_PERIOD = 10000;
+        BluetoothLeScanner bluetoothLeScanner = btadapter.getBluetoothLeScanner();
+        ScanCallback scanCallback = new ScanCallback() {
+            @Override
+            public void onScanResult(int callbackType, ScanResult result) {
+                super.onScanResult(callbackType, result);
+                BluetoothDevice foundDevice = result.getDevice();
+                if (foundDevice.getName() != null && foundDevice.getName().equals("Mi Band 3")) {
+                    device = foundDevice;
+                    intent.setAction(ACTION_SCAN_RESULT).putExtra(EXTRAS_SCAN, true);
+                }
+                sendBroadcast(intent);
             }
-        }
-        bluetoothAdapter = bluetoothManager.getAdapter();
-        if (bluetoothAdapter == null) {
-            return false;
-        }
-        return true;
-    }
+        };
 
-    public boolean connect(final BluetoothDevice device) {
-        this.device = device;
-        String address = device.getAddress();
-        if (bluetoothAdapter == null || address == null) {
-            return false;
-        }
+        if (!scanning) {
+            handler.postDelayed(new Runnable() {
+                @Override
+                public void run() {
+                    scanning = false;
+                    bluetoothLeScanner.stopScan(scanCallback);
+                }
+            }, SCAN_PERIOD);
 
-        if (deviceAdress != null && address.equals(deviceAdress) && bluetoothGatt != null) {
-            Log.d(TAG, "Trying to use existing Gatt for connection.");
-            if (bluetoothGatt.connect()) {
-                return true;
-            } else {
-                return false;
-            }
-        } else if (device == null) {
-            return false;
+            scanning = true;
+            bluetoothLeScanner.startScan(scanCallback);
         } else {
-            bluetoothGatt = device.connectGatt(this, true, gattCallback, BluetoothDevice.TRANSPORT_LE);
-            Log.d(TAG, "Trying to create a new connection.");
-            deviceAdress = address;
-            return true;
+            scanning = false;
+            bluetoothLeScanner.stopScan(scanCallback);
         }
+    }
+
+    // connect to Mi Band 3
+    public void connect() {
+        device.createBond();
+        bluetoothGatt = device.connectGatt(this, false, gattCallback, BluetoothDevice.TRANSPORT_LE);
     }
 
     public void disconnect() {
         bluetoothGatt.disconnect();
     }
-
-    private boolean isConnected() {
-        return bluetoothGatt != null && connectionState == STATE_CONNECTED;
-    }
-
-
 }
 

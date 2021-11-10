@@ -1,10 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
-    xmlns:app="http://schemas.android.com/apk/res-auto"
-    xmlns:fbutton="http://schemas.android.com/apk/res-auto"
-    xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
-    android:layout_height="match_parent"
+    android:layout_height="wrap_content"
+    android:layout_marginTop="50dp"
     android:orientation="vertical">
 
     <RelativeLayout
@@ -27,6 +25,7 @@
             android:layout_height="wrap_content"
             android:layout_centerVertical="true"
             android:layout_marginLeft="20dp"
+            android:layout_marginRight="20dp"
             android:layout_toRightOf="@id/buttonScan"
             android:text="" />
     </RelativeLayout>
@@ -49,33 +48,10 @@
             android:id="@+id/textViewPair"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
+            android:layout_centerVertical="true"
+            android:layout_marginLeft="20dp"
+            android:layout_marginRight="20dp"
             android:layout_toRightOf="@id/buttonPair"
-            android:layout_centerVertical="true"
-            android:layout_marginLeft="20dp"
-            android:text="" />
-    </RelativeLayout>
-
-    <RelativeLayout
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="20dp"
-        android:clickable="false"
-        android:focusable="false">
-
-        <Button
-            android:id="@+id/buttonHeartRate"
-            android:layout_width="180dp"
-            android:layout_height="wrap_content"
-            android:layout_marginLeft="20dp"
-            android:text="@string/btHeartRate" />
-
-        <TextView
-            android:id="@+id/textViewHeartRate"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_toRightOf="@id/buttonHeartRate"
-            android:layout_centerVertical="true"
-            android:layout_marginLeft="20dp"
             android:text="" />
     </RelativeLayout>
 
@@ -97,9 +73,10 @@
             android:id="@+id/textViewSteps"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_toRightOf="@id/buttonSteps"
             android:layout_centerVertical="true"
             android:layout_marginLeft="20dp"
+            android:layout_marginRight="20dp"
+            android:layout_toRightOf="@id/buttonSteps"
             android:text="" />
     </RelativeLayout>
 
@@ -111,19 +88,22 @@
         android:focusable="false">
 
         <Button
-            android:id="@+id/buttonUser"
+            android:id="@+id/buttonHeartRate"
             android:layout_width="180dp"
             android:layout_height="wrap_content"
             android:layout_marginLeft="20dp"
-            android:text="@string/btUser" />
+            android:text="@string/btHeartRate" />
 
         <TextView
-            android:id="@+id/textViewUser"
+            android:id="@+id/textViewHeartRate"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_toRightOf="@id/buttonUser"
             android:layout_centerVertical="true"
             android:layout_marginLeft="20dp"
+            android:layout_marginRight="20dp"
+            android:layout_toRightOf="@id/buttonHeartRate"
             android:text="" />
     </RelativeLayout>
+
+
 </LinearLayout>
